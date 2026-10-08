@@ -1,0 +1,10 @@
+{
+  "name": "@colo-apps/quiniela-shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "premios.js",
+  "scripts": {
+    "test": "node --test"
+  }
+}
