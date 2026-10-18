@@ -11,7 +11,15 @@ export const QUINIELAS = [
   { id: 'santafe', nombre: 'Santa Fe', completo: 'Santa Fe' },
   { id: 'cordoba', nombre: 'Córdoba', completo: 'Córdoba' },
   { id: 'entrerios', nombre: 'Entre Ríos', completo: 'Entre Ríos' },
+  { id: 'mendoza', nombre: 'Mendoza', completo: 'Mendoza' },
+  { id: 'montevideo', nombre: 'Montevideo', completo: 'Montevideo (Uruguay)', soloTurnos: ['matutina', 'nocturna'] },
 ];
+
+// ¿Esa quiniela sortea en ese turno? (Montevideo solo en Matutina y Nocturna)
+export function sortea(quiniela, turno) {
+  const q = QUINIELAS.find((x) => x.id === quiniela);
+  return !q?.soloTurnos || q.soloTurnos.includes(turno);
+}
 
 export const TURNOS = [
   { id: 'previa', nombre: 'La Previa', hora: '10:15' },
@@ -61,4 +69,11 @@ export async function obtenerResultados(fecha) {
 // Extracto (20 números) de una quiniela en un turno, o null
 export function extractoDe(resultados, turno, quiniela) {
   return resultados?.turnos?.find((t) => t.turno === turno)?.quinielas?.[quiniela]?.numeros ?? null;
+}
+
+// ¿Salió mi número? Busca en los sorteos de los últimos días
+export async function buscarNumero(numero, dias) {
+  const r = await fetch(`${API}/api/buscar?numero=${numero}&dias=${dias}`, { signal: AbortSignal.timeout(60000) });
+  if (!r.ok) throw new Error(`El servidor respondió ${r.status}`);
+  return r.json();
 }

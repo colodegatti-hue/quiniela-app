@@ -83,7 +83,7 @@ main {
   position: fixed;
   inset: auto 0 0 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   background: var(--superficie);
   border-top: 1px solid var(--linea);
   padding-bottom: env(safe-area-inset-bottom);
@@ -95,7 +95,7 @@ main {
   color: var(--tenue);
   text-decoration: none;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   border-top: 3px solid transparent;
 }
 .navegacion a.activa { color: var(--verde); border-top-color: var(--verde); }
@@ -325,3 +325,67 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+
+/* ---- Fecha con calendario ---- */
+.fecha-boton {
+  background: none;
+  border: 0;
+  padding: 0.2rem 0.4rem;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-bottom: 2px dashed var(--linea);
+}
+.fecha-boton::first-letter { text-transform: uppercase; }
+.calendario { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.selector-fecha { position: relative; }
+
+/* ---- Compartir ---- */
+.compartir { padding: 0; margin-bottom: 0.4rem; font-size: 0.9rem; }
+.extracto-cabecera h3 { margin-bottom: 0.15rem; }
+.acciones-turno { margin-top: 0.6rem; }
+.acciones-turno .enlace { padding-left: 0; }
+.mensaje {
+  position: fixed;
+  left: 50%;
+  bottom: calc(4.8rem + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  background: var(--tinta);
+  color: var(--fondo);
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  font-weight: 600;
+  z-index: 20;
+  max-width: calc(100% - 2rem);
+  text-align: center;
+}
+
+/* ---- Buscar y calcular ---- */
+.bloque {
+  background: var(--superficie);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  padding: 1rem 1.1rem 1.1rem;
+  margin-top: 1rem;
+}
+.bloque h3 { margin-top: 0; }
+.bloque > .tenue { margin: 0 0 0.8rem; }
+.buscador { display: grid; gap: 0.8rem; }
+.buscador .entrada-numero, .bloque .entrada-numero {
+  width: 100%;
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  background: var(--fondo);
+}
+.buscador .boton { justify-self: start; }
+.resultado-busqueda { margin-top: 1rem; }
+.resumen { font-weight: 600; margin: 0 0 0.6rem; }
+.grupo-fecha h4 { margin: 0.8rem 0 0.2rem; font-family: var(--numeros); font-size: 1.05rem; color: var(--tenue); }
+.grupo-fecha h4::first-letter { text-transform: uppercase; }
+.grupo-fecha ul { list-style: none; margin: 0; padding: 0; }
+.grupo-fecha li { padding: 0.35rem 0; border-top: 1px solid var(--linea); font-size: 0.95rem; }
+.grupo-fecha li.a-la-cabeza { font-weight: 600; color: var(--rojo); }
+.formulario.plano { border: 0; padding: 0; margin: 0; background: none; }
+.calculo { border-top: 1px solid var(--linea); padding-top: 0.8rem; }
+.calculo p { margin: 0 0 0.4rem; }
+.calculo-veces { font-family: var(--numeros); font-weight: 700; font-size: 1.5rem; color: var(--verde); }

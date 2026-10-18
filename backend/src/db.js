@@ -133,3 +133,40 @@ export async function demorasRecientes(dias = 7) {
   );
   return r.rows;
 }
+
+// Busca en qué sorteos salió un número (de 1 a 4 cifras) desde una fecha.
+// Compara con las últimas cifras de cada número sorteado, como en la quiniela.
+export async function buscarNumero(numero, desde) {
+  const r = await db().query(
+    `select e.fecha, e.turno, e.quiniela, s.numero as sorteo,
+            array_agg(u.pos::int order by u.pos) as ubicaciones,
+            array_agg(u.valor order by u.pos) as valores
+     from extractos e
+     join sorteos s using (fecha, turno)
+     cross join lateral unnest(e.numeros) with ordinality as u(valor, pos)
+     where e.fecha >= $2 and right(u.valor, length($1)) = $1
+     group by e.fecha, e.turno, e.quiniela, s.numero
+     order by e.fecha desc,
+       array_position(array['nocturna','vespertina','matutina','primera','previa'], e.turno),
+       e.quiniela`,
+    [numero, desde],
+  );
+  const total = await db().query(
+    'select count(*)::int as sorteos, count(distinct fecha)::int as dias from sorteos where fecha >= $1',
+    [desde],
+  );
+  return {
+    numero,
+    desde,
+    sorteos: total.rows[0].sorteos,
+    dias: total.rows[0].dias,
+    aciertos: r.rows.map((x) => ({
+      fecha: x.fecha instanceof Date ? x.fecha.toISOString().slice(0, 10) : String(x.fecha).slice(0, 10),
+      turno: x.turno,
+      quiniela: x.quiniela,
+      sorteo: x.sorteo,
+      ubicaciones: x.ubicaciones,
+      valores: x.valores,
+    })),
+  };
+}

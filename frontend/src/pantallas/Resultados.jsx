@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import Extracto from '../componentes/Extracto.jsx';
 import { QUINIELAS, TURNOS, obtenerResultados, extractoDe } from '../util/datos.js';
 import { hoy, sumarDias, diaSemana, fechaLarga, yaEsLaHora } from '../util/fechas.js';
 import { cargarJugadas } from '../util/jugadas.js';
 import { UBICACIONES } from '../../../shared/premios.js';
+import { compartir, textoExtracto, textoCabezas } from '../util/herramientas.js';
+import useMensaje from '../componentes/useMensaje.js';
 
 // Ubicaciones a resaltar en un extracto según las jugadas guardadas
 function ubicacionesJugadas(jugadas, fecha, turno, quiniela, numeros) {
@@ -23,6 +25,27 @@ export default function Resultados() {
   const [cargando, setCargando] = useState(true);
   const [turnoElegido, setTurnoElegido] = useState(null);
   const jugadas = useMemo(() => cargarJugadas(), []);
+  const calendario = useRef(null);
+  const [mensaje, setMensaje] = useMensaje();
+
+  async function compartirTexto(texto) {
+    try {
+      const r = await compartir(texto);
+      if (r === 'copiado') setMensaje('Copiado: pegalo donde quieras');
+    } catch {
+      setMensaje('Tu teléfono no dejó compartir');
+    }
+  }
+
+  function abrirCalendario() {
+    const c = calendario.current;
+    if (!c) return;
+    if (c.showPicker) {
+      try { c.showPicker(); return; } catch { /* algunos navegadores no lo permiten */ }
+    }
+    c.focus();
+    c.click();
+  }
 
   const cargar = useCallback(async (f) => {
     setCargando(true);
@@ -64,9 +87,21 @@ export default function Resultados() {
       <div className="selector-fecha">
         <button type="button" className="flecha" onClick={() => setFecha(sumarDias(fecha, -1))} aria-label="Día anterior">‹</button>
         <h2>
-          {esHoy ? 'Hoy, ' : ''}
-          {fechaLarga(fecha)}
+          <button type="button" className="fecha-boton" onClick={abrirCalendario} aria-label="Elegir otra fecha">
+            {esHoy ? 'Hoy, ' : ''}
+            {fechaLarga(fecha)}
+          </button>
         </h2>
+        <input
+          ref={calendario}
+          type="date"
+          className="calendario"
+          max={hoy()}
+          value={fecha}
+          onChange={(e) => e.target.value && setFecha(e.target.value)}
+          tabIndex={-1}
+          aria-hidden="true"
+        />
         <button type="button" className="flecha" onClick={() => setFecha(sumarDias(fecha, 1))} disabled={esHoy} aria-label="Día siguiente">›</button>
       </div>
 
@@ -94,6 +129,14 @@ export default function Resultados() {
               );
             })}
           </nav>
+
+          {datos && salieron.has(turno) && (
+            <div className="acciones-turno">
+              <button type="button" className="enlace" onClick={() => compartirTexto(textoCabezas({ turno, fecha, resultados: datos }))}>
+                Compartir las cabezas de {infoTurno.nombre}
+              </button>
+            </div>
+          )}
 
           {datos?.sinConexion && <p className="nota">Sin conexión: te mostramos lo último que guardó tu teléfono.</p>}
 
@@ -132,6 +175,7 @@ export default function Resultados() {
                     nombre={q.completo}
                     numeros={numeros}
                     resaltadas={ubicacionesJugadas(jugadas, fecha, turno, q.id, numeros)}
+                    alCompartir={() => compartirTexto(textoExtracto({ quiniela: q.id, turno, fecha, numeros }))}
                   />
                 );
               })}
@@ -142,6 +186,7 @@ export default function Resultados() {
           )}
         </>
       )}
+      {mensaje && <p className="mensaje" role="status">{mensaje}</p>}
     </section>
   );
 }

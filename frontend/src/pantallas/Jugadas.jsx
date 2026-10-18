@@ -68,7 +68,7 @@ function Formulario({ alGuardar, alCancelar }) {
         <div className="opciones">
           {QUINIELAS.map((q) => (
             <button key={q.id} type="button" className={`opcion${f.quinielas.includes(q.id) ? ' activa' : ''}`} aria-pressed={f.quinielas.includes(q.id)} onClick={() => cambiar('quinielas', alternar(f.quinielas, q.id))}>
-              {q.nombre}
+              {q.nombre}{q.soloTurnos && <span className="tenue"> (Matutina y Nocturna)</span>}
             </button>
           ))}
         </div>

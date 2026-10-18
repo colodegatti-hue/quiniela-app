@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import Resultados from './pantallas/Resultados.jsx';
 import Jugadas from './pantallas/Jugadas.jsx';
 import ComoSeJuega from './pantallas/ComoSeJuega.jsx';
+import Buscar from './pantallas/Buscar.jsx';
 
 const PANTALLAS = {
   resultados: { titulo: 'Resultados', componente: Resultados },
-  jugadas: { titulo: 'Mis jugadas', componente: Jugadas },
-  'como-se-juega': { titulo: 'Cómo se juega', componente: ComoSeJuega },
+  jugadas: { titulo: 'Jugadas', componente: Jugadas },
+  buscar: { titulo: 'Buscar', componente: Buscar },
+  'como-se-juega': { titulo: 'Cómo jugar', componente: ComoSeJuega },
 };
 
 function pantallaActual() {
