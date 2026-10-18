@@ -20,6 +20,7 @@ const MAX_POR_CICLO = 12;      // sorteos oficiales a recuperar por llamada
 const RESPALDO_MIN = 15;       // minutos de espera antes de usar el respaldo
 const VENTANA_MIN = 180;       // minutos después del sorteo en que se sigue mirando
 const SALTO_MIN = 30;          // si falta un turno hace +30 min, probar número siguiente
+const MAX_HISTORIAL = 8;       // sorteos viejos a completar por llamada (historial)
 
 export function crearCiclo(opciones = {}) {
   const base = opciones.base ?? baseReal;
@@ -30,6 +31,8 @@ export function crearCiclo(opciones = {}) {
   };
   const sorteoInicial = opciones.sorteoInicial ?? Number(process.env.SORTEO_INICIAL || 0);
   const alGuardar = opciones.alGuardar ?? (() => {});
+  // Desde qué n.º de sorteo se quiere tener historial completo (0 = no completar)
+  const historialDesde = opciones.historialDesde ?? Number(process.env.HISTORIAL_DESDE || 0);
 
   let estado = null;
   let enCurso = null;
@@ -41,6 +44,9 @@ export function crearCiclo(opciones = {}) {
       sorteosHoy: await base.sorteosDeFecha(fecha),
       publicacionesHoy: await base.publicacionesDeFecha(fecha),
     };
+    estado.faltantes = historialDesde && base.numerosFaltantes && estado.ultimoNumero
+      ? await base.numerosFaltantes(historialDesde, estado.ultimoNumero)
+      : [];
   }
 
   async function anotarPublicacion(fecha, turno, fuente, ahora, resumen) {
@@ -122,6 +128,24 @@ export function crearCiclo(opciones = {}) {
         paginaNacional ??= []; // no reintentar en esta misma llamada
         resumen.errores.push(`quinieleando (${t}): ${e.message}`);
       }
+    }
+
+    // ---- 4. Historial: completa de a poco los sorteos viejos que faltan
+    if (estado.faltantes.length && !lotbaFallo) {
+      let cargados = 0;
+      while (estado.faltantes.length && cargados < MAX_HISTORIAL) {
+        const viejo = estado.faltantes[0];
+        try {
+          const s = await fuentes.buscarSorteoLotba(viejo);
+          if (s) await base.guardarSorteo(s);
+          estado.faltantes.shift();
+          cargados++;
+        } catch (e) {
+          resumen.errores.push(`Historial ${viejo}: ${e.message}`);
+          break;
+        }
+      }
+      resumen.historial = { cargados, quedan: estado.faltantes.length };
     }
 
     resumen.ultimoNumero = estado.ultimoNumero;

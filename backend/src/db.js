@@ -170,3 +170,15 @@ export async function buscarNumero(numero, desde) {
     })),
   };
 }
+
+// Números de sorteo que faltan en la base entre dos números (para completar el historial)
+export async function numerosFaltantes(desde, hasta) {
+  if (!desde || !hasta || hasta < desde) return [];
+  const r = await db().query(
+    `select n from generate_series($1::int, $2::int) as n
+     where not exists (select 1 from sorteos where numero = n)
+     order by n desc limit 1000`,
+    [desde, hasta],
+  );
+  return r.rows.map((x) => Number(x.n));
+}

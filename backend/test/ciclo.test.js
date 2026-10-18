@@ -31,6 +31,12 @@ function baseEnMemoria() {
       const k = `${fecha}|${turno}|${fuente}`;
       if (!publicaciones.has(k)) publicaciones.set(k, minutos);
     },
+    async numerosFaltantes(desde, hasta) {
+      const hay = new Set([...sorteos.values()].map((s) => s.numero));
+      const r = [];
+      for (let n = hasta; n >= desde; n--) if (!hay.has(n)) r.push(n);
+      return r;
+    },
     async publicacionesDeFecha(fecha) {
       return new Set([...publicaciones.keys()].filter((k) => k.startsWith(fecha)).map((k) => k.split('|').slice(1).join('|')));
     },
@@ -194,4 +200,25 @@ test('Dos llamadas al mismo tiempo: la segunda espera su turno', async () => {
   const ciclo = crearCiclo({ base: baseEnMemoria(), fuentes, sorteoInicial: 53007 });
   const [a, b] = await Promise.all([ciclo.tick(new Date('2026-10-08T13:00:00Z')), ciclo.tick(new Date('2026-10-08T13:00:00Z'))]);
   assert.ok(a.ocupado || b.ocupado);
+});
+
+test('Historial: completa de a poco los sorteos viejos que faltan (8 por llamada)', async () => {
+  const base = baseEnMemoria();
+  base.sorteos.set('2026-10-08|matutina', { numero: 53009, fuente: 'lotba', extractos: [] });
+  const viejos = {};
+  for (let n = 52990; n < 53009; n++) viejos[n] = { fecha: '2026-10-01', turno: 'previa' };
+  // Cada número viejo devuelve una fecha/turno distinto para no pisarse en la base de mentira
+  const turnos = ['previa', 'primera', 'matutina', 'vespertina', 'nocturna'];
+  Object.keys(viejos).forEach((n, i) => { viejos[n] = { fecha: `2026-09-${String(10 + Math.floor(i / 5)).padStart(2, '0')}`, turno: turnos[i % 5] }; });
+  const { fuentes, llamadas } = fuentesFalsas(viejos, { lotbaPublicados: new Set(Object.keys(viejos).map(Number)) });
+  const ciclo = crearCiclo({ base, fuentes, sorteoInicial: 53009, historialDesde: 52990 });
+  let r = await ciclo.tick(new Date('2026-10-18T19:00:00Z')); // domingo, sin turnos
+  assert.deepEqual(r.historial, { cargados: 8, quedan: 11 });
+  assert.deepEqual(llamadas.lotba.slice(1), [53008, 53007, 53006, 53005, 53004, 53003, 53002, 53001]);
+  r = await ciclo.tick(new Date('2026-10-18T19:05:00Z'));
+  r = await ciclo.tick(new Date('2026-10-18T19:10:00Z'));
+  assert.deepEqual(r.historial, { cargados: 3, quedan: 0 });
+  assert.equal(base.sorteos.size, 20);
+  r = await ciclo.tick(new Date('2026-10-18T19:15:00Z'));
+  assert.equal(r.historial, undefined);
 });
