@@ -108,3 +108,9 @@ test('Base real: búsqueda de 4 cifras con cero adelante y sin resultados', opci
   assert.deepEqual(nada.aciertos, []);
   assert.equal(nada.sorteos, 0);
 });
+
+test('Base real: números de sorteo faltantes', opciones, async () => {
+  const f = await db.numerosFaltantes(53005, 53012);
+  assert.deepEqual(f, [53012, 53011, 53008, 53007, 53006, 53005]);
+  assert.deepEqual(await db.numerosFaltantes(0, 53012), []);
+});
