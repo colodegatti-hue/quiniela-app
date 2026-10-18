@@ -12,14 +12,16 @@ export const TURNOS = [
   { id: 'nocturna', nombre: 'Nocturna', hora: '21:00' },
 ];
 
-// Quinielas que muestra la app (fase 1). "slug" = dirección en quinieleando.com.ar
+// Quinielas con respaldo en quinieleando.com.ar ("slug" = dirección en ese sitio)
 export const QUINIELAS = [
   { id: 'ciudad', nombre: 'Ciudad (Nacional)', slug: 'nacional' },
   { id: 'provincia', nombre: 'Provincia de Buenos Aires', slug: 'buenosaires' },
   { id: 'santafe', nombre: 'Santa Fe', slug: 'santafe' },
   { id: 'cordoba', nombre: 'Córdoba', slug: 'cordoba' },
   { id: 'entrerios', nombre: 'Entre Ríos', slug: 'entrerios' },
+  { id: 'mendoza', nombre: 'Mendoza', slug: 'mendoza' },
 ];
+// Montevideo también llega desde la Lotería (Matutina y Nocturna), pero no tiene respaldo.
 
 export const IDS_TURNOS = TURNOS.map((t) => t.id);
 export const IDS_QUINIELAS = QUINIELAS.map((q) => q.id);

@@ -3,7 +3,7 @@
 // Usa las reglas de premios compartidas con el servidor (shared/premios.js)
 // =====================================================================
 import { evaluarDirecta, UBICACIONES } from '../../../shared/premios.js';
-import { extractoDe, turnoPorId, TURNOS, QUINIELAS } from './datos.js';
+import { extractoDe, turnoPorId, TURNOS, QUINIELAS, sortea } from './datos.js';
 import { yaEsLaHora } from './fechas.js';
 
 const CLAVE = 'quiniela.jugadas.v1';
@@ -78,6 +78,7 @@ export function controlarJugada(jugada, resultados, instante = new Date()) {
   const quinielas = QUINIELAS.map((q) => q.id).filter((q) => jugada.quinielas.includes(q));
   for (const turno of turnos) {
     for (const quiniela of quinielas) {
+      if (!sortea(quiniela, turno)) continue; // Montevideo no sortea en todos los turnos
       const extracto = extractoDe(resultados, turno, quiniela);
       if (!extracto) {
         const hora = turnoPorId(turno).hora;

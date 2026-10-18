@@ -8,9 +8,15 @@
 //   ORIGENES_PERMITIDOS  dominios de la app separados por coma (vacío = todos)
 // =====================================================================
 import express from 'express';
-import { conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba } from './db.js';
+import { conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero } from './db.js';
 import { crearCiclo } from './ciclo.js';
 import { horaArgentina, QUINIELAS, TURNOS } from './horarios.js';
+
+function restarDias(fecha, dias) {
+  const d = new Date(`${fecha}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - dias);
+  return d.toISOString().slice(0, 10);
+}
 import { buscarSorteoLotba } from './fuentes/lotba.js';
 import { buscarPaginaQuinieleando } from './fuentes/quinieleando.js';
 
@@ -104,6 +110,30 @@ app.get('/api/resultados', async (req, res) => {
   } catch (e) {
     console.error('[resultados] error:', e);
     res.status(503).json({ error: 'No se pudieron leer los resultados' });
+  }
+});
+
+// ¿Salió mi número? Busca un número en los sorteos de los últimos días.
+// /api/buscar?numero=79&dias=30  (dias: de 1 a 60)
+const busquedas = new Map(); // "numero|dias|fecha" -> { datos, guardadoEn }
+app.get('/api/buscar', async (req, res) => {
+  const numero = String(req.query.numero || '');
+  const dias = Number(req.query.dias || 30);
+  if (!/^\d{1,4}$/.test(numero)) return res.status(400).json({ error: 'El número tiene que tener de 1 a 4 cifras' });
+  if (!Number.isInteger(dias) || dias < 1 || dias > 60) return res.status(400).json({ error: 'Los días tienen que ser de 1 a 60' });
+  const hoy = horaArgentina().fecha;
+  const clave = `${numero}|${dias}|${hoy}`;
+  const guardado = busquedas.get(clave);
+  if (guardado && Date.now() - guardado.guardadoEn < 120000) return res.json(guardado.datos);
+  try {
+    const datos = await buscarNumero(numero, restarDias(hoy, dias - 1));
+    busquedas.set(clave, { datos, guardadoEn: Date.now() });
+    if (busquedas.size > 200) busquedas.delete(busquedas.keys().next().value);
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json(datos);
+  } catch (e) {
+    console.error('[buscar] error:', e);
+    res.status(503).json({ error: 'No se pudo hacer la búsqueda' });
   }
 });
 

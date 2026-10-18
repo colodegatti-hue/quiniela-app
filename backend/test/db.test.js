@@ -81,3 +81,30 @@ test('Base real: la publicación se anota una sola vez', opciones, async () => {
   assert.equal(r.rows.length, 1);
   assert.equal(Number(r.rows[0].minutos_demora), 3.5);
 });
+
+test('Base real: busca un número en los sorteos (últimas cifras y ubicaciones)', opciones, async () => {
+  const r = await db.buscarNumero('79', '2026-10-01');
+  // Lo esperado se calcula a mano sobre los datos guardados en las pruebas anteriores
+  const esperados = [];
+  for (const turno of ['vespertina', 'matutina']) {
+    for (const [quiniela, numeros] of Object.entries(MATUTINA_53009).sort(([a], [b]) => a.localeCompare(b))) {
+      const ub = numeros.map((n, i) => (n.endsWith('79') ? i + 1 : null)).filter(Boolean);
+      if (ub.length) esperados.push(`${turno}|${quiniela}|${ub.join(',')}`);
+    }
+  }
+  assert.deepEqual(r.aciertos.map((a) => `${a.turno}|${a.quiniela}|${a.ubicaciones.join(',')}`), esperados);
+  assert.equal(r.aciertos[0].fecha, '2026-10-08');
+  assert.equal(r.sorteos, 2);
+  assert.equal(r.dias, 1);
+  const cabeza = r.aciertos.find((a) => a.quiniela === 'ciudad' && a.turno === 'matutina');
+  assert.deepEqual(cabeza.ubicaciones, [1]);
+  assert.deepEqual(cabeza.valores, ['9179']);
+});
+
+test('Base real: búsqueda de 4 cifras con cero adelante y sin resultados', opciones, async () => {
+  const r = await db.buscarNumero('0419', '2026-10-01');
+  assert.ok(r.aciertos.some((a) => a.quiniela === 'ciudad' && a.ubicaciones.includes(9)));
+  const nada = await db.buscarNumero('0419', '2026-11-01');
+  assert.deepEqual(nada.aciertos, []);
+  assert.equal(nada.sorteos, 0);
+});
