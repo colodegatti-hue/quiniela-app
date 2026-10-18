@@ -1,0 +1,83 @@
+// Pruebas contra una base PostgreSQL REAL.
+// Solo corren si existe la variable TEST_DATABASE_URL (base de prueba vacía).
+// NUNCA apuntarla a la base de producción: borra las tablas de prueba al final.
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import pg from 'pg';
+import * as db from '../src/db.js';
+import { MATUTINA_53009 } from './datos-reales.js';
+
+const URL_PRUEBA = process.env.TEST_DATABASE_URL;
+const opciones = { skip: !URL_PRUEBA && 'sin TEST_DATABASE_URL' };
+
+before(async () => {
+  if (!URL_PRUEBA) return;
+  const esquema = await readFile(new URL('../sql/esquema.sql', import.meta.url), 'utf8');
+  const c = new pg.Client({ connectionString: URL_PRUEBA });
+  await c.connect();
+  await c.query('drop table if exists extractos, publicaciones, sorteos cascade');
+  await c.query(esquema);
+  await c.query(esquema); // se puede correr dos veces
+  await c.end();
+  db.conectar(URL_PRUEBA);
+});
+
+after(async () => { if (URL_PRUEBA) await db.cerrar(); });
+
+const extractos = Object.entries(MATUTINA_53009).map(([quiniela, numeros]) => ({ quiniela, numeros, letras: 'DJQQ' }));
+
+test('Base real: guarda la Matutina oficial y la lee igual', opciones, async () => {
+  assert.equal(await db.ultimoNumeroLotba(), null);
+  const r = await db.guardarSorteo({ fecha: '2026-10-08', turno: 'matutina', numero: 53009, fuente: 'lotba', extractos });
+  assert.equal(r, 'nuevo');
+  assert.equal(await db.ultimoNumeroLotba(), 53009);
+  assert.deepEqual(await db.sorteosDeFecha('2026-10-08'), { matutina: 'lotba' });
+  const res = await db.resultadosDeFecha('2026-10-08');
+  assert.equal(res.turnos.length, 1);
+  assert.equal(res.turnos[0].numero, 53009);
+  assert.deepEqual(res.turnos[0].quinielas.ciudad.numeros, MATUTINA_53009.ciudad);
+  assert.equal(res.turnos[0].quinielas.ciudad.numeros[8], '0419'); // conserva el cero adelante
+});
+
+test('Base real: el respaldo no pisa al oficial', opciones, async () => {
+  const otro = [{ quiniela: 'ciudad', numeros: Array(20).fill('0000'), letras: null }];
+  const r = await db.guardarSorteo({ fecha: '2026-10-08', turno: 'matutina', numero: null, fuente: 'quinieleando', extractos: otro });
+  assert.equal(r, 'omitido');
+  const res = await db.resultadosDeFecha('2026-10-08');
+  assert.deepEqual(res.turnos[0].quinielas.ciudad.numeros, MATUTINA_53009.ciudad);
+});
+
+test('Base real: respaldo primero y después la Lotería lo reemplaza', opciones, async () => {
+  const resp = [{ quiniela: 'ciudad', numeros: MATUTINA_53009.cordoba, letras: null }];
+  assert.equal(await db.guardarSorteo({ fecha: '2026-10-08', turno: 'vespertina', numero: null, fuente: 'quinieleando', extractos: resp }), 'nuevo');
+  assert.equal(await db.ultimoNumeroLotba(), 53009); // el respaldo no tiene número
+  assert.equal(await db.guardarSorteo({ fecha: '2026-10-08', turno: 'vespertina', numero: 53010, fuente: 'lotba', extractos }), 'actualizado');
+  const res = await db.resultadosDeFecha('2026-10-08');
+  assert.deepEqual(res.turnos.map((t) => t.turno), ['matutina', 'vespertina']); // orden del día
+  assert.equal(res.turnos[1].numero, 53010);
+  assert.equal(res.turnos[1].fuente, 'lotba');
+  assert.deepEqual(res.turnos[1].quinielas.ciudad.numeros, MATUTINA_53009.ciudad);
+  assert.equal(res.turnos[1].quinielas.ciudad.letras, 'DJQQ');
+});
+
+test('Base real: rechaza un extracto que no tiene 20 números', opciones, async () => {
+  await assert.rejects(db.guardarSorteo({
+    fecha: '2026-10-08', turno: 'nocturna', numero: 53011, fuente: 'lotba',
+    extractos: [{ quiniela: 'ciudad', numeros: ['1234'], letras: null }],
+  }));
+  assert.deepEqual(Object.keys(await db.sorteosDeFecha('2026-10-08')).sort(), ['matutina', 'vespertina']); // no quedó a medias
+});
+
+test('Base real: la publicación se anota una sola vez', opciones, async () => {
+  await db.registrarPublicacion('2026-10-08', 'matutina', 'lotba', 3.5);
+  await db.registrarPublicacion('2026-10-08', 'matutina', 'lotba', 9);
+  const pubs = await db.publicacionesDeFecha('2026-10-08');
+  assert.ok(pubs.has('matutina|lotba'));
+  const c = new pg.Client({ connectionString: URL_PRUEBA });
+  await c.connect();
+  const r = await c.query('select minutos_demora from publicaciones');
+  await c.end();
+  assert.equal(r.rows.length, 1);
+  assert.equal(Number(r.rows[0].minutos_demora), 3.5);
+});
