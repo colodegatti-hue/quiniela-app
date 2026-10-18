@@ -72,10 +72,17 @@ app.get('/salud', (req, res) => {
   res.json({ ok: true, horaArgentina: horaArgentina(), version: '1.0.0' });
 });
 
-// Lo llama cron-job.org cada 2 minutos (lunes a sábado, de 10 a 22)
+// Lo llaman cron-job.org y/o GitHub (lunes a sábado, de 10 a 23).
+// Freno: como mucho una búsqueda cada 45 segundos, aunque lo llamen más seguido.
+let ultimoTick = { hora: 0, resumen: null };
 app.get('/cron/tick', exigirClave, async (req, res) => {
+  if (Date.now() - ultimoTick.hora < 45000) {
+    return res.json({ omitido: 'Ya se buscó hace menos de 45 segundos', anterior: ultimoTick.resumen });
+  }
+  ultimoTick.hora = Date.now();
   try {
     const resumen = await ciclo.tick();
+    ultimoTick.resumen = resumen;
     console.log('[tick]', JSON.stringify(resumen));
     res.json(resumen);
   } catch (e) {
