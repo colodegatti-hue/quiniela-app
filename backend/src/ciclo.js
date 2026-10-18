@@ -1,0 +1,148 @@
+// =====================================================================
+// ciclo.js — Lo que hace el servidor cada vez que cron-job.org lo llama
+//
+// 1. Busca en la Lotería (oficial) los sorteos nuevos, por número
+//    correlativo, y los guarda. Si el servidor estuvo dormido, se pone al
+//    día solo (hasta MAX_POR_CICLO sorteos por llamada).
+// 2. Si un turno de hoy ya debería haber salido y la Lotería no lo tiene
+//    (o falla), lo toma del respaldo (quinieleando) a los RESPALDO_MIN min.
+// 3. Anota cuándo vio cada fuente cada resultado (para medir la demora).
+//
+// Para no gastar la base (Neon gratis), el estado del día se guarda en
+// memoria y la base solo se usa al arrancar, al cambiar el día y al guardar.
+// =====================================================================
+import * as horarios from './horarios.js';
+import * as baseReal from './db.js';
+import { buscarSorteoLotba } from './fuentes/lotba.js';
+import { buscarSorteoQuinieleando, buscarPaginaQuinieleando } from './fuentes/quinieleando.js';
+
+const MAX_POR_CICLO = 12;      // sorteos oficiales a recuperar por llamada
+const RESPALDO_MIN = 15;       // minutos de espera antes de usar el respaldo
+const VENTANA_MIN = 180;       // minutos después del sorteo en que se sigue mirando
+const SALTO_MIN = 30;          // si falta un turno hace +30 min, probar número siguiente
+
+export function crearCiclo(opciones = {}) {
+  const base = opciones.base ?? baseReal;
+  const fuentes = opciones.fuentes ?? {
+    buscarSorteoLotba,
+    buscarSorteoQuinieleando,
+    buscarPaginaQuinieleando,
+  };
+  const sorteoInicial = opciones.sorteoInicial ?? Number(process.env.SORTEO_INICIAL || 0);
+  const alGuardar = opciones.alGuardar ?? (() => {});
+
+  let estado = null;
+  let enCurso = null;
+
+  async function cargarEstado(fecha) {
+    estado = {
+      fecha,
+      ultimoNumero: await base.ultimoNumeroLotba(),
+      sorteosHoy: await base.sorteosDeFecha(fecha),
+      publicacionesHoy: await base.publicacionesDeFecha(fecha),
+    };
+  }
+
+  async function anotarPublicacion(fecha, turno, fuente, ahora, resumen) {
+    const clave = `${turno}|${fuente}`;
+    if (fecha !== estado.fecha || estado.publicacionesHoy.has(clave)) return;
+    const demora = (ahora - horarios.instanteDelSorteo(fecha, turno)) / 60000;
+    if (demora < 0 || demora > VENTANA_MIN) return; // recuperado tarde: no sirve para medir
+    await base.registrarPublicacion(fecha, turno, fuente, Math.round(demora * 10) / 10);
+    estado.publicacionesHoy.add(clave);
+    resumen.publicaciones.push({ turno, fuente, minutos: Math.round(demora * 10) / 10 });
+  }
+
+  async function guardar(sorteo, ahora, resumen) {
+    const res = await base.guardarSorteo(sorteo);
+    if (res !== 'omitido') {
+      resumen.guardados.push({ fecha: sorteo.fecha, turno: sorteo.turno, numero: sorteo.numero, fuente: sorteo.fuente, resultado: res });
+      if (sorteo.fecha === estado.fecha) estado.sorteosHoy[sorteo.turno] = sorteo.fuente;
+      alGuardar(sorteo);
+    }
+    await anotarPublicacion(sorteo.fecha, sorteo.turno, sorteo.fuente, ahora, resumen);
+  }
+
+  async function ejecutar(ahora) {
+    const ar = horarios.horaArgentina(ahora);
+    if (!estado || estado.fecha !== ar.fecha) await cargarEstado(ar.fecha);
+
+    const resumen = { fecha: ar.fecha, guardados: [], publicaciones: [], faltantes: [], errores: [] };
+    const sorteados = horarios.turnosYaSorteados(ahora);
+    const minutosDesde = (t) => (ahora - horarios.instanteDelSorteo(ar.fecha, t)) / 60000;
+
+    // ---- 1. Fuente oficial: sorteos nuevos por número ----------------
+    let lotbaFallo = false;
+    let n = estado.ultimoNumero === null ? sorteoInicial : estado.ultimoNumero + 1;
+    if (!n) {
+      resumen.errores.push('Falta configurar SORTEO_INICIAL (la base está vacía)');
+      lotbaFallo = true;
+    } else {
+      for (let i = 0; i < MAX_POR_CICLO; i++) {
+        try {
+          let s = await fuentes.buscarSorteoLotba(n);
+          if (!s) {
+            // ¿La Lotería salteó un número? Solo se prueba si hace rato falta un turno.
+            const atrasado = sorteados.some((t) => !estado.sorteosHoy[t] && minutosDesde(t) >= SALTO_MIN);
+            if (!atrasado) break;
+            s = await fuentes.buscarSorteoLotba(n + 1);
+            if (!s) break;
+          }
+          await guardar(s, ahora, resumen);
+          estado.ultimoNumero = s.numero;
+          n = s.numero + 1;
+        } catch (e) {
+          lotbaFallo = true;
+          resumen.errores.push(`Lotería: ${e.message}`);
+          break;
+        }
+      }
+    }
+
+    // ---- 2 y 3. Turnos de hoy: respaldo y medición -------------------
+    let paginaNacional; // se baja una sola vez por llamada
+    for (const t of sorteados) {
+      const minutos = minutosDesde(t);
+      if (minutos > VENTANA_MIN) {
+        if (!estado.sorteosHoy[t]) resumen.faltantes.push(t);
+        continue;
+      }
+      try {
+        if (!estado.sorteosHoy[t] && (lotbaFallo || minutos >= RESPALDO_MIN)) {
+          const s = await fuentes.buscarSorteoQuinieleando(ar.fecha, t);
+          if (s) await guardar(s, ahora, resumen);
+          else resumen.faltantes.push(t);
+        } else if (!estado.publicacionesHoy.has(`${t}|quinieleando`)) {
+          paginaNacional ??= await fuentes.buscarPaginaQuinieleando('nacional');
+          if (paginaNacional.some((x) => x.fecha === ar.fecha && x.turno === t)) {
+            await anotarPublicacion(ar.fecha, t, 'quinieleando', ahora, resumen);
+          }
+        }
+      } catch (e) {
+        paginaNacional ??= []; // no reintentar en esta misma llamada
+        resumen.errores.push(`quinieleando (${t}): ${e.message}`);
+      }
+    }
+
+    resumen.ultimoNumero = estado.ultimoNumero;
+    resumen.turnosHoy = { ...estado.sorteosHoy };
+    return resumen;
+  }
+
+  // Evita dos ejecuciones al mismo tiempo
+  async function tick(ahora = new Date()) {
+    if (enCurso) return { ocupado: true };
+    enCurso = ejecutar(ahora);
+    try {
+      return await enCurso;
+    } finally {
+      enCurso = null;
+    }
+  }
+
+  return {
+    tick,
+    olvidarEstado: () => { estado = null; },
+    verEstado: () => estado,
+  };
+}
