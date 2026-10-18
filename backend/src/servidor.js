@@ -8,7 +8,7 @@
 //   ORIGENES_PERMITIDOS  dominios de la app separados por coma (vacío = todos)
 // =====================================================================
 import express from 'express';
-import { conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero } from './db.js';
+import { conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero, guardarSorteo } from './db.js';
 import { crearCiclo } from './ciclo.js';
 import { horaArgentina, QUINIELAS, TURNOS } from './horarios.js';
 
@@ -150,6 +150,30 @@ app.get('/api/demoras', exigirClave, async (req, res) => {
   } catch (e) {
     res.status(503).json({ error: e.message });
   }
+});
+
+// Carga sorteos ANTERIORES desde la Lotería (para el historial y el buscador).
+// /api/cargar-historial?clave=...&desde=52900&hasta=52925  (hasta 30 por llamada)
+app.get('/api/cargar-historial', exigirClave, async (req, res) => {
+  const desde = Number(req.query.desde);
+  const hasta = Number(req.query.hasta);
+  if (!Number.isInteger(desde) || !Number.isInteger(hasta) || hasta < desde || hasta - desde >= 30) {
+    return res.status(400).json({ error: 'Usar desde y hasta (números de sorteo), como mucho 30 por vez' });
+  }
+  const informe = { guardados: [], vacios: [], errores: [] };
+  for (let n = desde; n <= hasta; n++) {
+    try {
+      const s = await buscarSorteoLotba(n);
+      if (!s) { informe.vacios.push(n); continue; }
+      const r = await guardarSorteo(s);
+      informe.guardados.push(`${n} ${s.fecha} ${s.turno} (${r})`);
+    } catch (e) {
+      informe.errores.push(`${n}: ${e.message}`);
+    }
+  }
+  memoria.clear();
+  busquedas.clear();
+  res.json(informe);
 });
 
 // Diagnóstico: prueba las dos fuentes desde Render SIN guardar nada
