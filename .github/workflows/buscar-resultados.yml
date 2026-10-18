@@ -1,0 +1,24 @@
+# Llama al servidor para que busque los resultados nuevos.
+# Lunes a sábado, cada 5 minutos, de 10:00 a 22:55 (hora argentina = UTC-3).
+# Necesita el secreto CLAVE_CRON (Settings → Secrets and variables → Actions).
+name: Buscar resultados
+
+on:
+  schedule:
+    - cron: '*/5 13-23 * * 1-6'   # 10:00 a 20:55 (lun a sáb)
+    - cron: '*/5 0-1 * * 2-6,0'   # 21:00 a 22:55 (lun a sáb)
+  workflow_dispatch:
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Llamar al servidor
+        env:
+          CLAVE_CRON: ${{ secrets.CLAVE_CRON }}
+        run: |
+          if [ -z "$CLAVE_CRON" ]; then echo "Falta el secreto CLAVE_CRON"; exit 1; fi
+          # Render gratis se duerme: el primer pedido puede tardar hasta un minuto
+          curl -fsS --retry 2 --retry-delay 20 --max-time 150 \
+            "https://quiniela-backend-ou9g.onrender.com/cron/tick?clave=${CLAVE_CRON}"
