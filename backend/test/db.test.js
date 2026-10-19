@@ -143,6 +143,14 @@ test('Base real: estadísticas de salidores y atrasados', opciones, async () => 
   assert.equal(otra.historial.sorteos, 2);
 });
 
+test('Base real: quinielas guardadas de cada sorteo de una fecha', opciones, async () => {
+  const q = await db.quinielasDeFecha('2026-10-08');
+  const mat = q.find((x) => x.turno === 'matutina');
+  assert.equal(mat.numero, 53009);
+  assert.equal(mat.fuente, 'lotba');
+  assert.deepEqual(mat.quinielas, Object.keys(MATUTINA_53009).sort());
+});
+
 test('Base real: suscripciones a los avisos', opciones, async () => {
   const sus = { endpoint: 'https://push.ejemplo/abc', p256dh: 'p', auth: 'a', dispositivo: 'tel-1', preferencias: { cabezas: true }, jugadas: [{ numero: '79' }] };
   await db.guardarSuscripcion(sus);

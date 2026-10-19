@@ -53,15 +53,15 @@ const cacheEstadisticas = new Map(); // "quiniela|dias|fecha" -> datos (se borra
 const IDS_ESTADISTICAS = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios', 'mendoza', 'montevideo'];
 
 const ciclo = crearCiclo({
-  alGuardar: (s, resultado) => {
+  alGuardar: (s) => {
     memoria.delete(s.fecha); // llegó un resultado: refrescar
     cacheEstadisticas.clear();
-    // Sorteo NUEVO de hoy → avisar a los teléfonos (sin frenar la búsqueda)
-    if (resultado === 'nuevo' && s.fecha === horaArgentina().fecha) {
-      avisos.avisarSorteo(s)
-        .then((r) => console.log(`[avisos] ${s.turno}: ${r.enviados} enviados, ${r.fallidos} fallidos`))
-        .catch((e) => console.error('[avisos] error:', e.message));
-    }
+  },
+  // Sorteo de hoy completo (o incompleto hace 20 min) → avisar a los teléfonos, sin frenar la búsqueda
+  alListo: (s) => {
+    avisos.avisarSorteo(s)
+      .then((r) => console.log(`[avisos] ${s.turno} (${s.extractos.length} quinielas): ${r.enviados} enviados, ${r.fallidos} fallidos`))
+      .catch((e) => console.error('[avisos] error:', e.message));
   },
 });
 

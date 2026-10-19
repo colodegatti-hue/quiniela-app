@@ -233,3 +233,103 @@ test('alGuardar recibe si el sorteo es nuevo o actualizado (para avisar solo los
   await ciclo.tick(new Date('2026-10-08T21:20:00Z')); // 18:20: matutina oficial + vespertina por respaldo
   assert.deepEqual(recibidos, ['matutina:lotba:nuevo', 'vespertina:quinieleando:nuevo']);
 });
+
+// ---- La Lotería publica las quinielas de a una (pasó el 19/10 con La Primera)
+const ORDEN_PUBLICACION = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios', 'mendoza'];
+function lotbaDeAPoco(numero, fecha, turno) {
+  let cuantas = 0; // cuántas quinielas muestra la Lotería en este momento
+  return {
+    publicar: (n) => { cuantas = n; },
+    llamadas: [],
+    fuentes(llamadas = this.llamadas) {
+      return {
+        async buscarSorteoLotba(n) {
+          llamadas.push(n);
+          if (n !== numero || cuantas === 0) return null;
+          return { numero, fecha, turno, fuente: 'lotba', extractos: ORDEN_PUBLICACION.slice(0, cuantas).map((q) => ({ quiniela: q, numeros: CIUDAD, letras: null })) };
+        },
+        async buscarSorteoQuinieleando() { return null; },
+        async buscarPaginaQuinieleando() { return []; },
+      };
+    },
+  };
+}
+const a12 = (min) => new Date(Date.UTC(2026, 9, 19, 15, min)); // 12:mm del lunes 19/10
+
+test('Sorteo incompleto: lo vuelve a pedir hasta tener las 6 quinielas y avisa una sola vez', async () => {
+  const base = baseEnMemoria();
+  base.sorteos.set('2026-10-19|previa', { numero: 53052, fuente: 'lotba', extractos: [] });
+  const lot = lotbaDeAPoco(53053, '2026-10-19', 'primera');
+  const listos = [];
+  const ciclo = crearCiclo({ base, fuentes: lot.fuentes(), alListo: (s) => listos.push(`${s.turno}:${s.extractos.length}`) });
+
+  lot.publicar(1);
+  let r = await ciclo.tick(a12(2));
+  assert.equal(r.guardados[0].incompleto, true);
+  assert.deepEqual(r.incompletos, ['primera']);
+  assert.deepEqual(listos, []); // todavía no avisa
+
+  lot.publicar(3);
+  r = await ciclo.tick(a12(4));
+  assert.equal(r.guardados[0].resultado, 'actualizado');
+  assert.equal(r.guardados[0].quinielas, 3);
+  assert.deepEqual(listos, []);
+
+  r = await ciclo.tick(a12(5)); // sin cambios: no vuelve a guardar
+  assert.deepEqual(r.guardados, []);
+
+  lot.publicar(6);
+  r = await ciclo.tick(a12(6));
+  assert.equal(r.guardados[0].incompleto, undefined);
+  assert.equal(r.incompletos, undefined);
+  assert.deepEqual(listos, ['primera:6']);
+  assert.equal(base.sorteos.get('2026-10-19|primera').extractos.length, 6);
+
+  lot.llamadas.length = 0;
+  await ciclo.tick(a12(8));
+  assert.deepEqual(lot.llamadas, [53054]); // ya completo: no lo pide más
+  assert.deepEqual(listos, ['primera:6']);
+});
+
+test('Si sigue incompleto a los 20 minutos, avisa con lo que hay (y no repite al completarse)', async () => {
+  const base = baseEnMemoria();
+  base.sorteos.set('2026-10-19|previa', { numero: 53052, fuente: 'lotba', extractos: [] });
+  const lot = lotbaDeAPoco(53053, '2026-10-19', 'primera');
+  const listos = [];
+  const ciclo = crearCiclo({ base, fuentes: lot.fuentes(), alListo: (s) => listos.push(s.extractos.length) });
+  lot.publicar(2);
+  await ciclo.tick(a12(3));
+  await ciclo.tick(a12(15));
+  assert.deepEqual(listos, []);
+  await ciclo.tick(a12(23));
+  assert.deepEqual(listos, [2]);
+  lot.publicar(6);
+  const r = await ciclo.tick(a12(30));
+  assert.equal(r.guardados[0].quinielas, 6); // se completa igual
+  assert.deepEqual(listos, [2]); // pero no avisa dos veces
+});
+
+test('Al arrancar, retoma un sorteo de hoy que había quedado incompleto (sin volver a avisar)', async () => {
+  const base = baseEnMemoria();
+  base.sorteos.set('2026-10-19|previa', { numero: 53052, fuente: 'lotba', extractos: [] });
+  base.sorteos.set('2026-10-19|primera', { numero: 53053, fuente: 'lotba', extractos: [{ quiniela: 'ciudad' }] });
+  base.quinielasDeFecha = async () => [
+    { turno: 'previa', numero: 53052, fuente: 'lotba', quinielas: ORDEN_PUBLICACION },
+    { turno: 'primera', numero: 53053, fuente: 'lotba', quinielas: ['ciudad'] },
+  ];
+  const lot = lotbaDeAPoco(53053, '2026-10-19', 'primera');
+  lot.publicar(6);
+  const listos = [];
+  const ciclo = crearCiclo({ base, fuentes: lot.fuentes(), alListo: (s) => listos.push(s.turno) });
+  const r = await ciclo.tick(a12(14));
+  assert.equal(r.guardados[0].quinielas, 6);
+  assert.deepEqual(lot.llamadas, [53053, 53054]);
+  assert.deepEqual(listos, []);
+});
+
+test('Matutina y Nocturna de la Lotería esperan también a Montevideo', async () => {
+  const { quinielasEsperadas } = await import('../src/ciclo.js');
+  assert.equal(quinielasEsperadas('matutina', 'lotba').length, 7);
+  assert.equal(quinielasEsperadas('primera', 'lotba').length, 6);
+  assert.equal(quinielasEsperadas('nocturna', 'quinieleando').length, 6);
+});
