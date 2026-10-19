@@ -182,3 +182,49 @@ export async function numerosFaltantes(desde, hasta) {
   );
   return r.rows.map((x) => Number(x.n));
 }
+
+// ---- Avisos (notificaciones push) ----------------------------------
+
+export async function guardarSuscripcion({ endpoint, p256dh, auth, dispositivo, preferencias, jugadas }) {
+  await db().query(
+    `insert into suscripciones (endpoint, p256dh, auth, dispositivo, preferencias, jugadas)
+     values ($1, $2, $3, $4, $5, $6)
+     on conflict (endpoint) do update set
+       p256dh = excluded.p256dh, auth = excluded.auth, dispositivo = excluded.dispositivo,
+       preferencias = excluded.preferencias, jugadas = excluded.jugadas, fallos = 0, actualizada = now()`,
+    [endpoint, p256dh, auth, dispositivo ?? null, JSON.stringify(preferencias ?? {}), JSON.stringify(jugadas ?? [])],
+  );
+}
+
+// Cambia preferencias y/o jugadas. Devuelve false si esa suscripción no existe.
+export async function actualizarSuscripcion(endpoint, { preferencias, jugadas }) {
+  const r = await db().query(
+    `update suscripciones set
+       preferencias = coalesce($2::jsonb, preferencias),
+       jugadas = coalesce($3::jsonb, jugadas),
+       actualizada = now()
+     where endpoint = $1`,
+    [endpoint, preferencias ? JSON.stringify(preferencias) : null, jugadas ? JSON.stringify(jugadas) : null],
+  );
+  return r.rowCount > 0;
+}
+
+export async function borrarSuscripcion(endpoint) {
+  await db().query('delete from suscripciones where endpoint = $1', [endpoint]);
+}
+
+export async function listarSuscripciones() {
+  const r = await db().query('select endpoint, p256dh, auth, preferencias, jugadas from suscripciones');
+  return r.rows;
+}
+
+export async function buscarSuscripcion(endpoint) {
+  const r = await db().query('select endpoint, p256dh, auth, preferencias, jugadas from suscripciones where endpoint = $1', [endpoint]);
+  return r.rows[0] ?? null;
+}
+
+// Suma un fallo de envío; a los 5 fallos seguidos se borra
+export async function registrarFalloEnvio(endpoint) {
+  await db().query('update suscripciones set fallos = fallos + 1 where endpoint = $1', [endpoint]);
+  await db().query('delete from suscripciones where endpoint = $1 and fallos >= 5', [endpoint]);
+}

@@ -222,3 +222,14 @@ test('Historial: completa de a poco los sorteos viejos que faltan (8 por llamada
   r = await ciclo.tick(new Date('2026-10-18T19:15:00Z'));
   assert.equal(r.historial, undefined);
 });
+
+test('alGuardar recibe si el sorteo es nuevo o actualizado (para avisar solo los nuevos)', async () => {
+  const base = baseEnMemoria();
+  base.sorteos.set('2026-10-08|primera', { numero: 53008, fuente: 'lotba', extractos: [] });
+  base.sorteos.set('2026-10-08|previa', { numero: 53007, fuente: 'lotba', extractos: [] });
+  const recibidos = [];
+  const { fuentes } = fuentesFalsas(CALENDARIO, { lotbaPublicados: new Set([53009]), quinieleando: { '2026-10-08|vespertina': true } });
+  const ciclo = crearCiclo({ base, fuentes, sorteoInicial: 53007, alGuardar: (s, r) => recibidos.push(`${s.turno}:${s.fuente}:${r}`) });
+  await ciclo.tick(new Date('2026-10-08T21:20:00Z')); // 18:20: matutina oficial + vespertina por respaldo
+  assert.deepEqual(recibidos, ['matutina:lotba:nuevo', 'vespertina:quinieleando:nuevo']);
+});

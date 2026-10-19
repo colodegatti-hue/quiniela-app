@@ -8,7 +8,11 @@
 //   ORIGENES_PERMITIDOS  dominios de la app separados por coma (vacío = todos)
 // =====================================================================
 import express from 'express';
-import { conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero, guardarSorteo } from './db.js';
+import {
+  conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero, guardarSorteo,
+  guardarSuscripcion, actualizarSuscripcion, borrarSuscripcion,
+} from './db.js';
+import { crearAvisos, pushConfigurado } from './avisos.js';
 import { crearCiclo } from './ciclo.js';
 import { horaArgentina, QUINIELAS, TURNOS } from './horarios.js';
 
@@ -44,13 +48,24 @@ async function obtenerResultados(fecha) {
   return datos;
 }
 
+const avisos = crearAvisos();
+
 const ciclo = crearCiclo({
-  alGuardar: (s) => memoria.delete(s.fecha), // llegó un resultado: refrescar
+  alGuardar: (s, resultado) => {
+    memoria.delete(s.fecha); // llegó un resultado: refrescar
+    // Sorteo NUEVO de hoy → avisar a los teléfonos (sin frenar la búsqueda)
+    if (resultado === 'nuevo' && s.fecha === horaArgentina().fecha) {
+      avisos.avisarSorteo(s)
+        .then((r) => console.log(`[avisos] ${s.turno}: ${r.enviados} enviados, ${r.fallidos} fallidos`))
+        .catch((e) => console.error('[avisos] error:', e.message));
+    }
+  },
 });
 
 // ---- Servidor web
 const app = express();
 app.disable('x-powered-by');
+app.use(express.json({ limit: '100kb' }));
 
 app.use((req, res, next) => {
   const origen = req.headers.origin;
@@ -88,6 +103,12 @@ app.get('/cron/tick', exigirClave, async (req, res) => {
   ultimoTick.hora = Date.now();
   try {
     const resumen = await ciclo.tick();
+    try {
+      const r = await avisos.recordar();
+      if (r.turno) resumen.recordatorio = r;
+    } catch (e) {
+      console.error('[recordatorio] error:', e.message);
+    }
     ultimoTick.resumen = resumen;
     console.log('[tick]', JSON.stringify(resumen));
     res.json(resumen);
@@ -134,6 +155,90 @@ app.get('/api/buscar', async (req, res) => {
   } catch (e) {
     console.error('[buscar] error:', e);
     res.status(503).json({ error: 'No se pudo hacer la búsqueda' });
+  }
+});
+
+// ---- Avisos (notificaciones push) ---------------------------------
+function validarSuscripcion(s) {
+  return s && typeof s.endpoint === 'string' && s.endpoint.startsWith('https://') && s.endpoint.length < 1000
+    && typeof s.keys?.p256dh === 'string' && typeof s.keys?.auth === 'string';
+}
+
+// Limpia lo que manda el teléfono: solo jugadas de hoy en adelante, como mucho 50
+function limpiarJugadas(jugadas) {
+  if (!Array.isArray(jugadas)) return [];
+  const desde = horaArgentina().fecha;
+  return jugadas
+    .filter((j) => j && /^\d{1,4}$/.test(String(j.numero)) && typeof j.fecha === 'string' && j.fecha >= desde)
+    .slice(0, 50)
+    .map((j) => ({
+      numero: String(j.numero), ubicacion: String(j.ubicacion), fecha: j.fecha,
+      quinielas: (j.quinielas || []).map(String).slice(0, 10), turnos: (j.turnos || []).map(String).slice(0, 5),
+      monto: Number(j.monto) > 0 ? Number(j.monto) : null,
+    }));
+}
+
+function limpiarPreferencias(p = {}) {
+  return {
+    cabezas: p.cabezas !== false,
+    quinielas: Array.isArray(p.quinielas) ? p.quinielas.map(String).slice(0, 10) : undefined,
+    recordatorio: p.recordatorio === true,
+  };
+}
+
+app.get('/api/push/clave', (req, res) => {
+  if (!pushConfigurado()) return res.status(503).json({ error: 'Los avisos todavía no están configurados' });
+  res.json({ clave: process.env.VAPID_PUBLICA });
+});
+
+app.post('/api/push/suscribir', async (req, res) => {
+  const { suscripcion, dispositivo, preferencias, jugadas } = req.body || {};
+  if (!validarSuscripcion(suscripcion)) return res.status(400).json({ error: 'Suscripción inválida' });
+  try {
+    await guardarSuscripcion({
+      endpoint: suscripcion.endpoint, p256dh: suscripcion.keys.p256dh, auth: suscripcion.keys.auth,
+      dispositivo: typeof dispositivo === 'string' ? dispositivo.slice(0, 64) : null,
+      preferencias: limpiarPreferencias(preferencias), jugadas: limpiarJugadas(jugadas),
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[push] suscribir:', e.message);
+    res.status(503).json({ error: 'No se pudo guardar' });
+  }
+});
+
+app.post('/api/push/actualizar', async (req, res) => {
+  const { endpoint, preferencias, jugadas } = req.body || {};
+  if (typeof endpoint !== 'string') return res.status(400).json({ error: 'Falta el endpoint' });
+  try {
+    const ok = await actualizarSuscripcion(endpoint, {
+      preferencias: preferencias ? limpiarPreferencias(preferencias) : null,
+      jugadas: jugadas ? limpiarJugadas(jugadas) : null,
+    });
+    res.status(ok ? 200 : 404).json({ ok });
+  } catch (e) {
+    res.status(503).json({ error: 'No se pudo actualizar' });
+  }
+});
+
+app.post('/api/push/baja', async (req, res) => {
+  const { endpoint } = req.body || {};
+  if (typeof endpoint !== 'string') return res.status(400).json({ error: 'Falta el endpoint' });
+  try {
+    await borrarSuscripcion(endpoint);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(503).json({ error: 'No se pudo dar de baja' });
+  }
+});
+
+app.post('/api/push/prueba', async (req, res) => {
+  const { endpoint } = req.body || {};
+  if (typeof endpoint !== 'string') return res.status(400).json({ error: 'Falta el endpoint' });
+  try {
+    res.json(await avisos.prueba(endpoint));
+  } catch (e) {
+    res.status(503).json({ error: 'No se pudo enviar la prueba' });
   }
 });
 

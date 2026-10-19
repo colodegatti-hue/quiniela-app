@@ -389,3 +389,10 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 .calculo { border-top: 1px solid var(--linea); padding-top: 0.8rem; }
 .calculo p { margin: 0 0 0.4rem; }
 .calculo-veces { font-family: var(--numeros); font-weight: 700; font-size: 1.5rem; color: var(--verde); }
+
+/* ---- Avisos ---- */
+.avisos p { margin: 0 0 0.8rem; }
+.avisos-opciones { display: grid; gap: 0.8rem; }
+.interruptor { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; }
+.interruptor input { width: 1.25rem; height: 1.25rem; accent-color: var(--verde); }
+.interruptor input:disabled + span { color: var(--tenue); font-weight: 400; }

@@ -34,3 +34,16 @@ create table if not exists publicaciones (
   minutos_demora numeric(6,1),
   primary key (fecha, turno, fuente)
 );
+
+-- Teléfonos que activaron los avisos (notificaciones push)
+create table if not exists suscripciones (
+  endpoint text primary key,             -- dirección única que da el navegador
+  p256dh text not null,
+  auth text not null,
+  dispositivo text,                      -- id anónimo del teléfono
+  preferencias jsonb not null default '{}'::jsonb,   -- { cabezas, quinielas, recordatorio }
+  jugadas jsonb not null default '[]'::jsonb,        -- copia de las jugadas para avisar aciertos
+  fallos int not null default 0,
+  creada timestamptz not null default now(),
+  actualizada timestamptz not null default now()
+);

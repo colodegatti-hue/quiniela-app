@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import PanelAvisos from '../componentes/PanelAvisos.jsx';
+import { sincronizarJugadas } from '../util/avisos.js';
 import { QUINIELAS, TURNOS, nombreQuiniela, turnoPorId, obtenerResultados } from '../util/datos.js';
 import { hoy, sumarDias, fechaCorta, formatoPesos, yaEsLaHora, diaSemana } from '../util/fechas.js';
 import {
@@ -184,6 +186,7 @@ export default function Jugadas() {
   function guardar(lista) {
     setJugadas(lista);
     if (!guardarJugadas(lista)) setAviso('Tu teléfono no dejó guardar la jugada. Revisá que no estés en modo privado.');
+    sincronizarJugadas(lista); // para que el servidor avise si salen
   }
 
   const ordenadas = [...jugadas].sort((a, b) => (b.fecha + b.creada).localeCompare(a.fecha + a.creada));
@@ -203,6 +206,8 @@ export default function Jugadas() {
       )}
 
       {aviso && <p className="nota">{aviso}</p>}
+
+      {!creando && <PanelAvisos />}
 
       {!creando && jugadas.length === 0 && (
         <div className="vacio">
