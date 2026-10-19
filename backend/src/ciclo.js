@@ -64,7 +64,7 @@ export function crearCiclo(opciones = {}) {
     if (res !== 'omitido') {
       resumen.guardados.push({ fecha: sorteo.fecha, turno: sorteo.turno, numero: sorteo.numero, fuente: sorteo.fuente, resultado: res });
       if (sorteo.fecha === estado.fecha) estado.sorteosHoy[sorteo.turno] = sorteo.fuente;
-      alGuardar(sorteo);
+      alGuardar(sorteo, res);
     }
     await anotarPublicacion(sorteo.fecha, sorteo.turno, sorteo.fuente, ahora, resumen);
   }

@@ -16,7 +16,7 @@ before(async () => {
   const esquema = await readFile(new URL('../sql/esquema.sql', import.meta.url), 'utf8');
   const c = new pg.Client({ connectionString: URL_PRUEBA });
   await c.connect();
-  await c.query('drop table if exists extractos, publicaciones, sorteos cascade');
+  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones cascade');
   await c.query(esquema);
   await c.query(esquema); // se puede correr dos veces
   await c.end();
@@ -113,4 +113,22 @@ test('Base real: números de sorteo faltantes', opciones, async () => {
   const f = await db.numerosFaltantes(53005, 53012);
   assert.deepEqual(f, [53012, 53011, 53008, 53007, 53006, 53005]);
   assert.deepEqual(await db.numerosFaltantes(0, 53012), []);
+});
+
+test('Base real: suscripciones a los avisos', opciones, async () => {
+  const sus = { endpoint: 'https://push.ejemplo/abc', p256dh: 'p', auth: 'a', dispositivo: 'tel-1', preferencias: { cabezas: true }, jugadas: [{ numero: '79' }] };
+  await db.guardarSuscripcion(sus);
+  await db.guardarSuscripcion({ ...sus, p256dh: 'p2' }); // repetir actualiza, no duplica
+  let lista = await db.listarSuscripciones();
+  assert.equal(lista.length, 1);
+  assert.equal(lista[0].p256dh, 'p2');
+  assert.deepEqual(lista[0].jugadas, [{ numero: '79' }]);
+  assert.equal(await db.actualizarSuscripcion(sus.endpoint, { preferencias: { cabezas: false, recordatorio: true } }), true);
+  assert.equal(await db.actualizarSuscripcion('https://no-existe', { jugadas: [] }), false);
+  const una = await db.buscarSuscripcion(sus.endpoint);
+  assert.deepEqual(una.preferencias, { cabezas: false, recordatorio: true });
+  assert.deepEqual(una.jugadas, [{ numero: '79' }]); // no se pisó
+  for (let i = 0; i < 5; i++) await db.registrarFalloEnvio(sus.endpoint);
+  lista = await db.listarSuscripciones();
+  assert.equal(lista.length, 0); // a los 5 fallos se borra
 });
