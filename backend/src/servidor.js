@@ -9,7 +9,7 @@
 // =====================================================================
 import express from 'express';
 import {
-  conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero, guardarSorteo,
+  conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero, guardarSorteo, estadisticas,
   guardarSuscripcion, actualizarSuscripcion, borrarSuscripcion,
 } from './db.js';
 import { crearAvisos, pushConfigurado } from './avisos.js';
@@ -49,10 +49,13 @@ async function obtenerResultados(fecha) {
 }
 
 const avisos = crearAvisos();
+const cacheEstadisticas = new Map(); // "quiniela|dias|fecha" -> datos (se borra cuando llega un sorteo)
+const IDS_ESTADISTICAS = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios', 'mendoza', 'montevideo'];
 
 const ciclo = crearCiclo({
   alGuardar: (s, resultado) => {
     memoria.delete(s.fecha); // llegó un resultado: refrescar
+    cacheEstadisticas.clear();
     // Sorteo NUEVO de hoy → avisar a los teléfonos (sin frenar la búsqueda)
     if (resultado === 'nuevo' && s.fecha === horaArgentina().fecha) {
       avisos.avisarSorteo(s)
@@ -158,6 +161,30 @@ app.get('/api/buscar', async (req, res) => {
   }
 });
 
+// Números salidores y atrasados de una quiniela.
+// /api/estadisticas?quiniela=ciudad&dias=30  (dias: de 7 a 365)
+app.get('/api/estadisticas', async (req, res) => {
+  const quiniela = String(req.query.quiniela || 'ciudad');
+  const dias = Number(req.query.dias || 30);
+  if (!IDS_ESTADISTICAS.includes(quiniela)) return res.status(400).json({ error: 'Quiniela inválida' });
+  if (!Number.isInteger(dias) || dias < 7 || dias > 365) return res.status(400).json({ error: 'Los días tienen que ser de 7 a 365' });
+  const hoy = horaArgentina().fecha;
+  const clave = `${quiniela}|${dias}|${hoy}`;
+  try {
+    let datos = cacheEstadisticas.get(clave);
+    if (!datos) {
+      datos = await estadisticas(quiniela, restarDias(hoy, dias - 1));
+      cacheEstadisticas.set(clave, datos);
+      if (cacheEstadisticas.size > 100) cacheEstadisticas.delete(cacheEstadisticas.keys().next().value);
+    }
+    res.set('Cache-Control', 'public, max-age=120');
+    res.json(datos);
+  } catch (e) {
+    console.error('[estadisticas] error:', e);
+    res.status(503).json({ error: 'No se pudieron calcular las estadísticas' });
+  }
+});
+
 // ---- Avisos (notificaciones push) ---------------------------------
 function validarSuscripcion(s) {
   return s && typeof s.endpoint === 'string' && s.endpoint.startsWith('https://') && s.endpoint.length < 1000
@@ -183,6 +210,9 @@ function limpiarPreferencias(p = {}) {
     cabezas: p.cabezas !== false,
     quinielas: Array.isArray(p.quinielas) ? p.quinielas.map(String).slice(0, 10) : undefined,
     recordatorio: p.recordatorio === true,
+    // Números a seguir (de 2 cifras, sin repetir, como mucho 10)
+    alertas: Array.isArray(p.alertas) ? [...new Set(p.alertas.map(String).filter((n) => /^\d{2}$/.test(n)))].slice(0, 10) : [],
+    alertasDonde: p.alertasDonde === 'a_los_20' ? 'a_los_20' : 'cabeza',
   };
 }
 

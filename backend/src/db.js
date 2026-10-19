@@ -183,6 +183,62 @@ export async function numerosFaltantes(desde, hasta) {
   return r.rows.map((x) => Number(x.n));
 }
 
+// ---- Estadísticas ---------------------------------------------------
+// Para una quiniela: cuántas veces salió cada número de 2 cifras (00 a 99)
+// desde una fecha, y hace cuántos sorteos salió por última vez (en todo el historial).
+export async function estadisticas(quiniela, desde) {
+  const r = await db().query(
+    `with s as (
+       select fecha, turno,
+              row_number() over (order by fecha, array_position(array['previa','primera','matutina','vespertina','nocturna'], turno)) as orden
+       from extractos where quiniela = $1
+     ),
+     u as (
+       select s.orden, s.fecha, s.turno, x.pos, right(x.valor, 2) as n
+       from extractos e
+       join s using (fecha, turno)
+       cross join lateral unnest(e.numeros) with ordinality as x(valor, pos)
+       where e.quiniela = $1
+     )
+     select n,
+            count(*) filter (where pos = 1 and fecha >= $2)::int as cabeza,
+            count(*) filter (where fecha >= $2)::int as a_los_20,
+            max(orden) filter (where pos = 1)::int as orden_cabeza,
+            max(orden)::int as orden_20,
+            (array_agg(fecha::text || ' ' || turno order by orden desc) filter (where pos = 1))[1] as ultima_cabeza,
+            (array_agg(fecha::text || ' ' || turno order by orden desc))[1] as ultima_20
+     from u group by n`,
+    [quiniela, desde],
+  );
+  const t = await db().query(
+    `select count(*)::int as total,
+            count(*) filter (where fecha >= $2)::int as periodo,
+            min(fecha)::text as primera,
+            max(fecha)::text as ultima
+     from extractos where quiniela = $1`,
+    [quiniela, desde],
+  );
+  const { total, periodo, primera, ultima } = t.rows[0];
+  const porNumero = new Map(r.rows.map((x) => [x.n, x]));
+  const partir = (v) => (v ? { fecha: v.slice(0, 10), turno: v.slice(11) } : null);
+  const numeros = [];
+  for (let i = 0; i < 100; i++) {
+    const n = String(i).padStart(2, '0');
+    const x = porNumero.get(n);
+    numeros.push({
+      n,
+      cabeza: x?.cabeza ?? 0,
+      aLos20: x?.a_los_20 ?? 0,
+      // Sorteos que pasaron desde la última vez (0 = salió en el último). null = nunca en el historial
+      atrasoCabeza: x?.orden_cabeza ? total - x.orden_cabeza : null,
+      atraso20: x?.orden_20 ? total - x.orden_20 : null,
+      ultimaCabeza: partir(x?.ultima_cabeza),
+      ultima20: partir(x?.ultima_20),
+    });
+  }
+  return { quiniela, desde, sorteos: periodo, historial: { sorteos: total, desde: primera, hasta: ultima }, numeros };
+}
+
 // ---- Avisos (notificaciones push) ----------------------------------
 
 export async function guardarSuscripcion({ endpoint, p256dh, auth, dispositivo, preferencias, jugadas }) {

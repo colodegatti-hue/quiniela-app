@@ -57,6 +57,29 @@ test('Varias jugadas ganadoras y ubicaciones a los 20', () => {
   assert.equal(a.cuerpo, 'Santa Fe: el 79 en la ubicación 5\nProvincia: el 66 en la ubicación 3');
 });
 
+test('Alerta de un número a la cabeza, en cualquier quiniela, con las cabezas abajo', () => {
+  const a = armarAviso({ preferencias: { alertas: ['50'], quinielas: ['ciudad'] }, jugadas: [] }, SORTEO);
+  assert.equal(a.titulo, 'Salió el 50 en la Matutina');
+  assert.equal(a.cuerpo, 'Mendoza a la cabeza\nMontevideo a la cabeza\nCabezas: Ciudad 9179');
+  assert.equal(a.url, '/#/resultados');
+});
+
+test('Alerta a los 20 con varios números (y sin cabezas)', () => {
+  const a = armarAviso({ preferencias: { cabezas: false, alertas: ['79', '12', '45'], alertasDonde: 'a_los_20' }, jugadas: [] }, SORTEO);
+  assert.equal(a.titulo, 'Salió el 79 y el 12 en la Matutina');
+  assert.equal(a.cuerpo, '79: Ciudad a la cabeza\n79: Santa Fe en la ubicación 5\n12: Ciudad en la ubicación 19\n12: Córdoba en la ubicación 18');
+});
+
+test('Alerta que no salió: queda el aviso común de cabezas (o nada)', () => {
+  assert.equal(armarAviso({ preferencias: { alertas: ['12'] }, jugadas: [] }, SORTEO).titulo, 'Cabezas de la Matutina'); // 12 no salió a la cabeza
+  assert.equal(armarAviso({ preferencias: { alertas: ['12'], cabezas: false }, jugadas: [] }, SORTEO), null);
+});
+
+test('Si sale una jugada, gana el aviso de la jugada sobre la alerta', () => {
+  const sub = { preferencias: { alertas: ['50'] }, jugadas: [{ numero: '79', ubicacion: 'cabeza', quinielas: ['ciudad'], turnos: ['matutina'], fecha: '2026-10-08', monto: 100 }] };
+  assert.equal(armarAviso(sub, SORTEO).titulo, '¡Salió tu 79 en la Matutina!');
+});
+
 test('Recordatorio: avisa entre 5 y 20 minutos antes de cada turno', () => {
   assert.deepEqual(turnoParaRecordar(new Date('2026-10-19T13:00:00Z')), { fecha: '2026-10-19', turno: 'previa', faltan: 15 }); // 10:00
   assert.equal(turnoParaRecordar(new Date('2026-10-19T13:12:00Z')), null); // 10:12, faltan 3

@@ -10,6 +10,8 @@ export const PREFERENCIAS_INICIALES = {
   cabezas: true,
   quinielas: ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios'],
   recordatorio: false,
+  alertas: [],             // números a seguir, de 2 cifras ("avisame cuando salga el 47")
+  alertasDonde: 'cabeza',  // 'cabeza' o 'a_los_20'
 };
 
 export function cargarPreferencias() {
