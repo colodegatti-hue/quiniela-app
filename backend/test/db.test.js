@@ -115,6 +115,34 @@ test('Base real: números de sorteo faltantes', opciones, async () => {
   assert.deepEqual(await db.numerosFaltantes(0, 53012), []);
 });
 
+test('Base real: estadísticas de salidores y atrasados', opciones, async () => {
+  // Un sorteo anterior, fuera del período: cabeza 5500 y el resto 5501
+  const viejo = [{ quiniela: 'ciudad', numeros: ['5500', ...Array(19).fill('5501')], letras: null }];
+  await db.guardarSorteo({ fecha: '2026-10-07', turno: 'nocturna', numero: 53004, fuente: 'lotba', extractos: viejo });
+  const e = await db.estadisticas('ciudad', '2026-10-08');
+  assert.equal(e.numeros.length, 100);
+  assert.equal(e.sorteos, 2); // matutina y vespertina del 08
+  assert.deepEqual(e.historial, { sorteos: 3, desde: '2026-10-07', hasta: '2026-10-08' });
+  const n79 = e.numeros.find((x) => x.n === '79');
+  const veces79 = MATUTINA_53009.ciudad.filter((v) => v.endsWith('79')).length;
+  assert.equal(n79.cabeza, 2); // 9179 a la cabeza en los dos
+  assert.equal(n79.aLos20, veces79 * 2);
+  assert.equal(n79.atrasoCabeza, 0); // salió en el último sorteo
+  assert.deepEqual(n79.ultimaCabeza, { fecha: '2026-10-08', turno: 'vespertina' });
+  const n00 = e.numeros.find((x) => x.n === '00');
+  assert.equal(n00.cabeza, 0); // salió antes del período
+  assert.equal(n00.atrasoCabeza, 2); // hace 2 sorteos
+  assert.deepEqual(n00.ultimaCabeza, { fecha: '2026-10-07', turno: 'nocturna' });
+  const n01 = e.numeros.find((x) => x.n === '01');
+  assert.equal(n01.atrasoCabeza, null); // nunca a la cabeza
+  // Los números que no salieron nunca también aparecen, con 0
+  const nunca = e.numeros.filter((x) => x.atraso20 === null);
+  assert.ok(nunca.every((x) => x.aLos20 === 0 && x.cabeza === 0));
+  // Otra quiniela no se mezcla
+  const otra = await db.estadisticas('cordoba', '2026-10-08');
+  assert.equal(otra.historial.sorteos, 2);
+});
+
 test('Base real: suscripciones a los avisos', opciones, async () => {
   const sus = { endpoint: 'https://push.ejemplo/abc', p256dh: 'p', auth: 'a', dispositivo: 'tel-1', preferencias: { cabezas: true }, jugadas: [{ numero: '79' }] };
   await db.guardarSuscripcion(sus);

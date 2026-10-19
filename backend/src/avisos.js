@@ -2,6 +2,7 @@
 // avisos.js — Notificaciones push
 //  - Cabeza de cada sorteo al instante (de las quinielas elegidas)
 //  - Aviso especial si sale una jugada guardada (con premio estimado)
+//  - Alerta de números: "avisame cuando salga el 47" (en cualquier quiniela)
 //  - Recordatorio unos minutos antes de cada turno (opcional)
 //
 // Variables de entorno: VAPID_PUBLICA, VAPID_PRIVADA, VAPID_CONTACTO
@@ -69,14 +70,47 @@ export function armarAviso(sub, sorteo) {
     };
   }
 
-  // 2. Cabezas del sorteo
-  if (prefs.cabezas === false) return null;
+  // Cabezas de las quinielas elegidas (para el aviso común y como agregado)
   const elegidas = Array.isArray(prefs.quinielas) && prefs.quinielas.length ? prefs.quinielas : QUINIELAS_POR_DEFECTO;
   const cabezas = ORDEN.filter((q) => elegidas.includes(q))
     .map((q) => sorteo.extractos.find((e) => e.quiniela === q))
     .filter(Boolean)
     .map((e) => `${NOMBRES[e.quiniela]} ${e.numeros[0]}`);
-  if (!cabezas.length) return null;
+  const quiereCabezas = prefs.cabezas !== false && cabezas.length > 0;
+
+  // 2. ¿Salió alguno de los números que sigue?
+  const alertas = (Array.isArray(prefs.alertas) ? prefs.alertas : []).filter((n) => /^\d{2}$/.test(n));
+  if (alertas.length) {
+    const hasta = prefs.alertasDonde === 'a_los_20' ? 20 : 1;
+    const hallados = [];
+    for (const n of alertas) {
+      for (const q of ORDEN) {
+        const ex = sorteo.extractos.find((e) => e.quiniela === q);
+        if (!ex) continue;
+        const ubic = ex.numeros.slice(0, hasta).map((v, i) => (v.endsWith(n) ? i + 1 : null)).filter(Boolean);
+        if (ubic.length) hallados.push({ n, quiniela: q, ubic });
+      }
+    }
+    if (hallados.length) {
+      const numeros = [...new Set(hallados.map((h) => h.n))];
+      const lista = numeros.length === 1 ? `el ${numeros[0]}` : numeros.slice(0, -1).map((x) => `el ${x}`).join(', ') + ` y el ${numeros.at(-1)}`;
+      const lineas = hallados.slice(0, 4).map((h) => {
+        const donde = h.ubic[0] === 1 ? 'a la cabeza' : `en la ubicación ${h.ubic.join(', ')}`;
+        return `${numeros.length > 1 ? `${h.n}: ` : ''}${NOMBRES[h.quiniela]} ${donde}`;
+      });
+      if (hallados.length > 4) lineas.push(`y ${hallados.length - 4} más`);
+      if (quiereCabezas) lineas.push(`Cabezas: ${cabezas.join(' · ')}`);
+      return {
+        titulo: `Salió ${lista} en la ${nombreTurno(sorteo.turno)}`,
+        cuerpo: lineas.join('\n'),
+        url: '/#/resultados',
+        etiqueta,
+      };
+    }
+  }
+
+  // 3. Cabezas del sorteo
+  if (!quiereCabezas) return null;
   return {
     titulo: `Cabezas de la ${nombreTurno(sorteo.turno)}`,
     cuerpo: cabezas.join(' · '),

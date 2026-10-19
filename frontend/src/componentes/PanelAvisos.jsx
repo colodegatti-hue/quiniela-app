@@ -10,6 +10,48 @@ const TEXTOS_SIN_SOPORTE = {
   bloqueado: 'Los avisos están bloqueados para esta app. Activalos en los ajustes del teléfono (Notificaciones) y volvé a intentar.',
 };
 
+// "Avisame cuando salga el 47": números a seguir en cualquier quiniela
+function AlertasNumeros({ prefs, cambiar }) {
+  const [nuevo, setNuevo] = useState('');
+  const alertas = prefs.alertas ?? [];
+  const lleno = alertas.length >= 10;
+
+  function agregar(e) {
+    e.preventDefault();
+    const n = nuevo.padStart(2, '0');
+    if (!/^\d{1,2}$/.test(nuevo) || alertas.includes(n) || lleno) return;
+    cambiar({ ...prefs, alertas: [...alertas, n] });
+    setNuevo('');
+  }
+
+  return (
+    <div className="alertas">
+      <p className="alertas-titulo">Avisarme cuando salga un número</p>
+      <p className="tenue">En cualquier quiniela y turno. Hasta 10 números de 2 cifras.</p>
+      {alertas.length > 0 && (
+        <ul className="fichas">
+          {alertas.map((n) => (
+            <li key={n}>
+              <span>{n}</span>
+              <button type="button" aria-label={`Quitar el ${n}`} onClick={() => cambiar({ ...prefs, alertas: alertas.filter((x) => x !== n) })}>✕</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form className="alertas-agregar" onSubmit={agregar}>
+        <input inputMode="numeric" maxLength={2} placeholder="Ej.: 47" value={nuevo} disabled={lleno} onChange={(e) => setNuevo(e.target.value.replace(/\D/g, ''))} aria-label="Número a seguir" />
+        <button type="submit" className="boton secundario" disabled={!nuevo || lleno}>Agregar</button>
+      </form>
+      {alertas.length > 0 && (
+        <div className="segmentado" role="group" aria-label="Dónde tiene que salir">
+          <button type="button" aria-pressed={prefs.alertasDonde !== 'a_los_20'} onClick={() => cambiar({ ...prefs, alertasDonde: 'cabeza' })}>A la cabeza</button>
+          <button type="button" aria-pressed={prefs.alertasDonde === 'a_los_20'} onClick={() => cambiar({ ...prefs, alertasDonde: 'a_los_20' })}>En los 20</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PanelAvisos() {
   const [activos, setActivos] = useState(null); // null = revisando
   const [prefs, setPrefs] = useState(cargarPreferencias);
@@ -55,7 +97,7 @@ export default function PanelAvisos() {
       <h3>Avisos al instante</h3>
       {activos === false && (
         <>
-          <p>Te avisamos la cabeza de cada sorteo apenas sale, y si sale una de tus jugadas, con el premio estimado.</p>
+          <p>Te avisamos la cabeza de cada sorteo apenas sale, si sale una de tus jugadas (con el premio estimado) y cuando salga el número que sigas.</p>
           <button type="button" className="boton" disabled={ocupado} onClick={() => hacer(async () => { await activarAvisos(prefs); setActivos(true); }, 'Listo: los avisos quedaron activados.')}>
             {ocupado ? 'Activando…' : 'Activar avisos'}
           </button>
@@ -90,6 +132,7 @@ export default function PanelAvisos() {
             <input type="checkbox" checked readOnly disabled />
             <span>Si sale una de mis jugadas (siempre activo)</span>
           </label>
+          <AlertasNumeros prefs={prefs} cambiar={cambiar} />
           <label className="interruptor">
             <input type="checkbox" checked={prefs.recordatorio} onChange={(e) => cambiar({ ...prefs, recordatorio: e.target.checked })} />
             <span>Recordarme 15 minutos antes de cada turno</span>

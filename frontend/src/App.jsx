@@ -3,10 +3,14 @@ import Resultados from './pantallas/Resultados.jsx';
 import Jugadas from './pantallas/Jugadas.jsx';
 import ComoSeJuega from './pantallas/ComoSeJuega.jsx';
 import Buscar from './pantallas/Buscar.jsx';
+import Estadisticas from './pantallas/Estadisticas.jsx';
+import Suenos from './pantallas/Suenos.jsx';
 
 const PANTALLAS = {
   resultados: { titulo: 'Resultados', componente: Resultados },
   jugadas: { titulo: 'Jugadas', componente: Jugadas },
+  estadisticas: { titulo: 'Números', componente: Estadisticas },
+  suenos: { componente: Suenos, seccion: 'estadisticas' }, // dentro de "Números"
   buscar: { titulo: 'Buscar', componente: Buscar },
   'como-se-juega': { titulo: 'Cómo jugar', componente: ComoSeJuega },
 };
@@ -40,11 +44,14 @@ export default function App() {
         <Componente />
       </main>
       <nav className="navegacion" aria-label="Secciones">
-        {Object.entries(PANTALLAS).map(([id, p]) => (
-          <a key={id} href={`#/${id}`} className={id === pantalla ? 'activa' : undefined} aria-current={id === pantalla ? 'page' : undefined}>
-            {p.titulo}
-          </a>
-        ))}
+        {Object.entries(PANTALLAS).filter(([, p]) => p.titulo).map(([id, p]) => {
+          const activa = id === (PANTALLAS[pantalla].seccion ?? pantalla);
+          return (
+            <a key={id} href={`#/${id}`} className={activa ? 'activa' : undefined} aria-current={activa ? 'page' : undefined}>
+              {p.titulo}
+            </a>
+          );
+        })}
       </nav>
     </div>
   );
