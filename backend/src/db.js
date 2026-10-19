@@ -100,6 +100,17 @@ export async function registrarPublicacion(fecha, turno, fuente, minutosDemora) 
   );
 }
 
+// Quinielas guardadas de cada sorteo de una fecha (para saber si alguno quedó incompleto)
+export async function quinielasDeFecha(fecha) {
+  const r = await db().query(
+    `select s.turno, s.numero, s.fuente, array_agg(e.quiniela order by e.quiniela) as quinielas
+     from sorteos s join extractos e using (fecha, turno)
+     where s.fecha = $1 group by s.turno, s.numero, s.fuente`,
+    [fecha],
+  );
+  return r.rows.map((x) => ({ turno: x.turno, numero: x.numero === null ? null : Number(x.numero), fuente: x.fuente, quinielas: x.quinielas }));
+}
+
 // Fuentes que ya tienen registrada la publicación de una fecha: Set("turno|fuente")
 export async function publicacionesDeFecha(fecha) {
   const r = await db().query('select turno, fuente from publicaciones where fecha = $1', [fecha]);

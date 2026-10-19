@@ -7,6 +7,10 @@
 // 2. Si un turno de hoy ya debería haber salido y la Lotería no lo tiene
 //    (o falla), lo toma del respaldo (quinieleando) a los RESPALDO_MIN min.
 // 3. Anota cuándo vio cada fuente cada resultado (para medir la demora).
+// 4. La Lotería publica las quinielas DE A UNA: si un sorteo de hoy llegó
+//    incompleto, lo vuelve a pedir en cada llamada hasta tenerlas todas.
+//    Avisa (alListo) una sola vez por turno: cuando está completo, o a los
+//    ESPERA_AVISO_MIN minutos con lo que haya.
 //
 // Para no gastar la base (Neon gratis), el estado del día se guarda en
 // memoria y la base solo se usa al arrancar, al cambiar el día y al guardar.
@@ -21,6 +25,15 @@ const RESPALDO_MIN = 15;       // minutos de espera antes de usar el respaldo
 const VENTANA_MIN = 180;       // minutos después del sorteo en que se sigue mirando
 const SALTO_MIN = 30;          // si falta un turno hace +30 min, probar número siguiente
 const MAX_HISTORIAL = 8;       // sorteos viejos a completar por llamada (historial)
+const ESPERA_AVISO_MIN = 20;   // si un sorteo sigue incompleto, avisar igual a los 20 min
+const COMPLETAR_MIN = 150;     // hasta cuántos minutos después del sorteo se sigue completando
+
+const PRINCIPALES = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios', 'mendoza'];
+// Quinielas que tiene que traer un sorteo para estar completo
+export function quinielasEsperadas(turno, fuente) {
+  // Montevideo solo viene de la Lotería, en Matutina y Nocturna
+  return fuente === 'lotba' && (turno === 'matutina' || turno === 'nocturna') ? [...PRINCIPALES, 'montevideo'] : PRINCIPALES;
+}
 
 export function crearCiclo(opciones = {}) {
   const base = opciones.base ?? baseReal;
@@ -31,6 +44,8 @@ export function crearCiclo(opciones = {}) {
   };
   const sorteoInicial = opciones.sorteoInicial ?? Number(process.env.SORTEO_INICIAL || 0);
   const alGuardar = opciones.alGuardar ?? (() => {});
+  const alListo = opciones.alListo ?? (() => {}); // sorteo de hoy listo para avisar (una vez por turno)
+  const esperadas = opciones.quinielasEsperadas ?? quinielasEsperadas;
   // Desde qué n.º de sorteo se quiere tener historial completo (0 = no completar)
   const historialDesde = opciones.historialDesde ?? Number(process.env.HISTORIAL_DESDE || 0);
 
@@ -43,7 +58,17 @@ export function crearCiclo(opciones = {}) {
       ultimoNumero: await base.ultimoNumeroLotba(),
       sorteosHoy: await base.sorteosDeFecha(fecha),
       publicacionesHoy: await base.publicacionesDeFecha(fecha),
+      incompletos: new Map(), // turno -> { numero, sorteo, cantidad, desde }
     };
+    // Lo que ya estaba guardado antes de arrancar no se vuelve a avisar
+    estado.avisados = new Set(Object.keys(estado.sorteosHoy));
+    if (base.quinielasDeFecha) {
+      for (const x of await base.quinielasDeFecha(fecha)) {
+        if (x.fuente === 'lotba' && !esperadas(x.turno, x.fuente).every((q) => x.quinielas.includes(q))) {
+          estado.incompletos.set(x.turno, { numero: x.numero, sorteo: null, cantidad: x.quinielas.length, desde: null });
+        }
+      }
+    }
     estado.faltantes = historialDesde && base.numerosFaltantes && estado.ultimoNumero
       ? await base.numerosFaltantes(historialDesde, estado.ultimoNumero)
       : [];
@@ -59,12 +84,31 @@ export function crearCiclo(opciones = {}) {
     resumen.publicaciones.push({ turno, fuente, minutos: Math.round(demora * 10) / 10 });
   }
 
+  function avisar(turno, sorteo) {
+    if (!sorteo || estado.avisados.has(turno)) return;
+    estado.avisados.add(turno);
+    alListo(sorteo);
+  }
+
   async function guardar(sorteo, ahora, resumen) {
     const res = await base.guardarSorteo(sorteo);
     if (res !== 'omitido') {
-      resumen.guardados.push({ fecha: sorteo.fecha, turno: sorteo.turno, numero: sorteo.numero, fuente: sorteo.fuente, resultado: res });
-      if (sorteo.fecha === estado.fecha) estado.sorteosHoy[sorteo.turno] = sorteo.fuente;
+      const quinielas = sorteo.extractos.map((e) => e.quiniela);
+      const completo = esperadas(sorteo.turno, sorteo.fuente).every((q) => quinielas.includes(q));
+      const dato = { fecha: sorteo.fecha, turno: sorteo.turno, numero: sorteo.numero, fuente: sorteo.fuente, resultado: res, quinielas: quinielas.length };
+      if (!completo) dato.incompleto = true;
+      resumen.guardados.push(dato);
       alGuardar(sorteo, res);
+      if (sorteo.fecha === estado.fecha) {
+        estado.sorteosHoy[sorteo.turno] = sorteo.fuente;
+        const previo = estado.incompletos.get(sorteo.turno);
+        if (!completo && sorteo.fuente === 'lotba') {
+          estado.incompletos.set(sorteo.turno, { numero: sorteo.numero, sorteo, cantidad: quinielas.length, desde: previo?.desde ?? ahora });
+        } else {
+          estado.incompletos.delete(sorteo.turno);
+        }
+        if (completo) avisar(sorteo.turno, sorteo);
+      }
     }
     await anotarPublicacion(sorteo.fecha, sorteo.turno, sorteo.fuente, ahora, resumen);
   }
@@ -77,10 +121,29 @@ export function crearCiclo(opciones = {}) {
     const sorteados = horarios.turnosYaSorteados(ahora);
     const minutosDesde = (t) => (ahora - horarios.instanteDelSorteo(ar.fecha, t)) / 60000;
 
-    // ---- 1. Fuente oficial: sorteos nuevos por número ----------------
+    // ---- 0. Sorteos de hoy que llegaron incompletos: volver a pedirlos
     let lotbaFallo = false;
+    for (const [turno, inc] of [...estado.incompletos]) {
+      if (minutosDesde(turno) > COMPLETAR_MIN) {
+        estado.incompletos.delete(turno);
+        avisar(turno, inc.sorteo); // no se completó: se avisa con lo que hay
+        continue;
+      }
+      try {
+        const s = await fuentes.buscarSorteoLotba(inc.numero);
+        if (s && s.extractos.length > inc.cantidad) await guardar(s, ahora, resumen);
+      } catch (e) {
+        lotbaFallo = true;
+        resumen.errores.push(`Lotería (completar ${turno}): ${e.message}`);
+        break;
+      }
+    }
+
+    // ---- 1. Fuente oficial: sorteos nuevos por número ----------------
     let n = estado.ultimoNumero === null ? sorteoInicial : estado.ultimoNumero + 1;
-    if (!n) {
+    if (lotbaFallo) {
+      // ya falló al completar: no insistir en esta llamada
+    } else if (!n) {
       resumen.errores.push('Falta configurar SORTEO_INICIAL (la base está vacía)');
       lotbaFallo = true;
     } else {
@@ -147,6 +210,12 @@ export function crearCiclo(opciones = {}) {
       }
       resumen.historial = { cargados, quedan: estado.faltantes.length };
     }
+
+    // ---- 5. Si un sorteo sigue incompleto hace rato, avisar igual
+    for (const [turno, inc] of estado.incompletos) {
+      if (inc.desde && ahora - inc.desde >= ESPERA_AVISO_MIN * 60000) avisar(turno, inc.sorteo);
+    }
+    if (estado.incompletos.size) resumen.incompletos = [...estado.incompletos.keys()];
 
     resumen.ultimoNumero = estado.ultimoNumero;
     resumen.turnosHoy = { ...estado.sorteosHoy };
