@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import Extracto from '../componentes/Extracto.jsx';
-import { QUINIELAS, TURNOS, obtenerResultados, extractoDe } from '../util/datos.js';
-import { hoy, sumarDias, diaSemana, fechaLarga, yaEsLaHora } from '../util/fechas.js';
+import TablaDelDia from '../componentes/TablaDelDia.jsx';
+import { QUINIELAS, TURNOS, obtenerResultados, extractoDe, sortea } from '../util/datos.js';
+import { hoy, sumarDias, diaSemana, fechaLarga, yaEsLaHora, ahoraArgentina, minutosDelDia } from '../util/fechas.js';
 import { cargarJugadas } from '../util/jugadas.js';
 import { UBICACIONES } from '../../../shared/premios.js';
 import { compartir, textoExtracto, textoCabezas } from '../util/herramientas.js';
@@ -18,6 +19,25 @@ function ubicacionesJugadas(jugadas, fecha, turno, quiniela, numeros) {
   return set;
 }
 
+const CLAVE_VISTA = 'quiniela.vista.v1';
+function leerVista() {
+  try { return localStorage.getItem(CLAVE_VISTA) || 'dia'; } catch { return 'dia'; }
+}
+
+// Turnos de hoy "en vivo": ya se sortearon hace menos de 90 minutos y les falta alguna quiniela
+export function turnosEnVivo(fecha, datos, instante = new Date()) {
+  const a = ahoraArgentina(instante);
+  const r = new Set();
+  if (fecha !== a.fecha) return r;
+  for (const t of TURNOS) {
+    const pasaron = a.minutos - minutosDelDia(t.hora);
+    if (pasaron < 0 || pasaron > 90) continue;
+    const faltan = QUINIELAS.filter((q) => sortea(q.id, t.id)).some((q) => !extractoDe(datos, t.id, q.id));
+    if (faltan) r.add(t.id);
+  }
+  return r;
+}
+
 export default function Resultados() {
   const [fecha, setFecha] = useState(() => (diaSemana(hoy()) === 0 ? sumarDias(hoy(), -1) : hoy()));
   const [datos, setDatos] = useState(null);
@@ -27,6 +47,11 @@ export default function Resultados() {
   const jugadas = useMemo(() => cargarJugadas(), []);
   const calendario = useRef(null);
   const [mensaje, setMensaje] = useMensaje();
+  const [vista, setVista] = useState(leerVista);
+  function cambiarVista(v) {
+    setVista(v);
+    try { localStorage.setItem(CLAVE_VISTA, v); } catch { /* modo privado */ }
+  }
 
   async function compartirTexto(texto) {
     try {
@@ -65,13 +90,13 @@ export default function Resultados() {
     cargar(fecha);
   }, [fecha, cargar]);
 
-  // Hoy: se actualiza solo cada minuto mientras falte algún turno que ya debería haber salido
+  // Hoy: mientras haya un turno en vivo (falta alguna quiniela), se actualiza solo cada 30 segundos
   useEffect(() => {
     if (fecha !== hoy()) return undefined;
     const id = setInterval(() => {
       const falta = TURNOS.some((t) => yaEsLaHora(fecha, t.hora) && !datos?.turnos?.some((x) => x.turno === t.id));
-      if (falta) cargar(fecha);
-    }, 60000);
+      if (falta || turnosEnVivo(fecha, datos).size) cargar(fecha);
+    }, 30000);
     return () => clearInterval(id);
   }, [fecha, datos, cargar]);
 
@@ -81,6 +106,12 @@ export default function Resultados() {
   const infoTurno = TURNOS.find((t) => t.id === turno);
   const esDomingo = diaSemana(fecha) === 0;
   const esHoy = fecha === hoy();
+  const enVivo = turnosEnVivo(fecha, datos);
+  const jugadasCabeza = (t, q, n) => ubicacionesJugadas(jugadas, fecha, t, q, [n, ...Array(19).fill('')]).has(1);
+  function elegirTurno(t) {
+    setTurnoElegido(t);
+    cambiarVista('turno');
+  }
 
   return (
     <section className="pantalla">
@@ -112,6 +143,22 @@ export default function Resultados() {
         </div>
       ) : (
         <>
+          <div className="filtros-fila vista-resultados">
+            <div className="segmentado" role="group" aria-label="Cómo ver los resultados">
+              <button type="button" aria-pressed={vista === 'dia'} onClick={() => cambiarVista('dia')}>Todo el día</button>
+              <button type="button" aria-pressed={vista === 'turno'} onClick={() => cambiarVista('turno')}>Por turno</button>
+            </div>
+            {enVivo.size > 0 && <span className="vivo">EN VIVO</span>}
+          </div>
+
+          {vista === 'dia' && datos && !error && (
+            <>
+              <TablaDelDia datos={datos} enVivo={enVivo} jugadasCabeza={jugadasCabeza} alElegir={elegirTurno} />
+              <p className="nota">Tocá un número para ver los 20 de ese turno. Las quinielas van apareciendo a medida que cada lotería las publica.</p>
+            </>
+          )}
+
+          {vista === 'turno' && (<>
           <nav className="turnos" aria-label="Turnos del día">
             {TURNOS.map((t) => {
               const salio = salieron.has(t.id);
@@ -123,7 +170,7 @@ export default function Resultados() {
                   aria-pressed={t.id === turno}
                   onClick={() => setTurnoElegido(t.id)}
                 >
-                  <span className="turno-nombre">{t.nombre}</span>
+                  <span className="turno-nombre">{t.nombre}{enVivo.has(t.id) && <span className="vivo-punto" aria-label="en vivo" />}</span>
                   <span className="turno-hora">{t.hora}</span>
                 </button>
               );
@@ -179,11 +226,21 @@ export default function Resultados() {
                   />
                 );
               })}
+              {enVivo.has(turno) && <p className="nota">Faltan quinielas de este turno: aparecen solas apenas se publican.</p>}
               <p className="nota">
                 Resultados informativos: antes de cobrar, verificá con el extracto oficial de cada lotería.
               </p>
             </div>
           )}
+          </>)}
+
+          {vista === 'dia' && error && (
+            <div className="aviso">
+              <p>{error}</p>
+              <button type="button" className="boton" onClick={() => cargar(fecha)}>Actualizar</button>
+            </div>
+          )}
+          {vista === 'dia' && !error && cargando && !datos && <p className="nota">Buscando los resultados…</p>}
         </>
       )}
       {mensaje && <p className="mensaje" role="status">{mensaje}</p>}

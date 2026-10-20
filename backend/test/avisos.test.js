@@ -11,14 +11,14 @@ const SORTEO = {
 test('Aviso de cabezas con las quinielas por defecto (las 5 principales)', () => {
   const a = armarAviso({ preferencias: {}, jugadas: [] }, SORTEO);
   assert.equal(a.titulo, 'Cabezas de la Matutina');
-  assert.equal(a.cuerpo, 'Ciudad 9179 · Provincia 9643 · Santa Fe 6316 · Córdoba 9800 · Entre Ríos 7071');
+  assert.equal(a.cuerpo, 'Ciudad 9179 🦹 · Provincia 9643 🏠 · Santa Fe 6316 💍 · Córdoba 9800 🥚 · Entre Ríos 7071 💩');
   assert.equal(a.url, '/#/resultados');
   assert.equal(a.etiqueta, 'sorteo-2026-10-08-matutina');
 });
 
 test('Aviso de cabezas solo con las quinielas elegidas', () => {
   const a = armarAviso({ preferencias: { quinielas: ['montevideo', 'cordoba'] }, jugadas: [] }, SORTEO);
-  assert.equal(a.cuerpo, 'Córdoba 9800 · Montevideo 9850');
+  assert.equal(a.cuerpo, 'Córdoba 9800 🥚 · Montevideo 9850 🍞');
 });
 
 test('Sin cabezas activadas y sin aciertos: no se avisa', () => {
@@ -60,7 +60,7 @@ test('Varias jugadas ganadoras y ubicaciones a los 20', () => {
 test('Alerta de un número a la cabeza, en cualquier quiniela, con las cabezas abajo', () => {
   const a = armarAviso({ preferencias: { alertas: ['50'], quinielas: ['ciudad'] }, jugadas: [] }, SORTEO);
   assert.equal(a.titulo, 'Salió el 50 en la Matutina');
-  assert.equal(a.cuerpo, 'Mendoza a la cabeza\nMontevideo a la cabeza\nCabezas: Ciudad 9179');
+  assert.equal(a.cuerpo, 'Mendoza a la cabeza\nMontevideo a la cabeza\nCabezas: Ciudad 9179 🦹');
   assert.equal(a.url, '/#/resultados');
 });
 
@@ -152,4 +152,29 @@ test('Las alertas de número solo se mandan a teléfonos Pro', async () => {
   const avisos = crearAvisos({ base: baseFalsa(subs), activo: () => true, enviar: async (s, d) => enviados.push([s.endpoint, d.titulo]) });
   await avisos.avisarSorteo(SORTEO);
   assert.deepEqual(enviados, [['https://push/gratis', 'Cabezas de la Matutina'], ['https://push/pro', 'Salió el 50 en la Matutina']]);
+});
+
+test('Avisa apenas sale una quiniela que le importa y después actualiza sin volver a sonar', async () => {
+  const subs = [
+    { endpoint: 'https://push/todas', preferencias: {}, jugadas: [] },
+    { endpoint: 'https://push/provincia', preferencias: { quinielas: ['provincia'] }, jugadas: [] },
+    { endpoint: 'https://push/jugada', preferencias: { cabezas: false }, jugadas: [{ numero: '79', ubicacion: 'a_los_5', quinielas: ['santafe'], turnos: ['matutina'], fecha: '2026-10-08', monto: 100 }] },
+  ];
+  const enviados = [];
+  const avisos = crearAvisos({ base: baseFalsa(subs), activo: () => true, enviar: async (s, d) => enviados.push(`${s.endpoint.split('/').pop()}|${d.titulo}|${d.silencioso}`) });
+  const parcial = (qs) => ({ ...SORTEO, extractos: SORTEO.extractos.filter((e) => qs.includes(e.quiniela)) });
+
+  await avisos.avisarSorteo(parcial(['ciudad']), { nuevas: ['ciudad'] });
+  assert.deepEqual(enviados, ['todas|Cabezas de la Matutina|false']); // los otros no eligieron Ciudad
+
+  await avisos.avisarSorteo(parcial(['ciudad', 'provincia', 'santafe']), { nuevas: ['provincia', 'santafe'] });
+  assert.deepEqual(enviados.slice(1), [
+    'todas|Cabezas de la Matutina|true',      // se actualiza en silencio
+    'provincia|Cabezas de la Matutina|false', // primer aviso para este
+    'jugada|¡Salió tu 79 en la Matutina!|false',
+  ]);
+
+  enviados.length = 0;
+  await avisos.avisarSorteo(SORTEO, { nuevas: ['cordoba', 'entrerios', 'mendoza', 'montevideo'] });
+  assert.deepEqual(enviados, ['todas|Cabezas de la Matutina|true']); // a los demás no les cambió nada
 });
