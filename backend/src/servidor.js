@@ -356,8 +356,11 @@ app.get('/api/pro/prueba-mp', exigirClave, async (req, res) => {
       titulo: 'Prueba', precio: 10, referencia: `prueba-${Date.now()}`,
       urlVuelta: 'https://quiniela-app-i0j2.onrender.com/', urlAvisos: 'https://quiniela-backend-ou9g.onrender.com/api/pro/aviso-pago',
     });
-    res.json({ ok: true, preferencia: p.id, linkDePrueba: p.url.includes('sandbox') ? 'sandbox' : 'normal', tipoDeToken: (process.env.MP_ACCESS_TOKEN || '').split('-')[0] });
+    const r = { ok: true, preferencia: p.id, linkDePrueba: p.url.includes('sandbox') ? 'sandbox' : 'normal', tipoDeToken: (process.env.MP_ACCESS_TOKEN || '').split('-')[0] };
+    console.log('[pro] prueba Mercado Pago:', JSON.stringify(r));
+    res.json(r);
   } catch (e) {
+    console.log('[pro] prueba Mercado Pago FALLÓ:', e.message);
     res.json({ ok: false, error: e.message });
   }
 });
