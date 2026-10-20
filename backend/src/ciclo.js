@@ -19,6 +19,7 @@ import * as horarios from './horarios.js';
 import * as baseReal from './db.js';
 import { buscarSorteoLotba } from './fuentes/lotba.js';
 import { buscarSorteoQuinieleando, buscarPaginaQuinieleando } from './fuentes/quinieleando.js';
+import { buscarProvincia } from './fuentes/provincia.js';
 
 const MAX_POR_CICLO = 12;      // sorteos oficiales a recuperar por llamada
 const RESPALDO_MIN = 15;       // minutos de espera antes de usar el respaldo
@@ -40,6 +41,7 @@ export function crearCiclo(opciones = {}) {
     buscarSorteoLotba,
     buscarSorteoQuinieleando,
     buscarPaginaQuinieleando,
+    buscarProvincia,
   };
   const sorteoInicial = opciones.sorteoInicial ?? Number(process.env.SORTEO_INICIAL || 0);
   const alGuardar = opciones.alGuardar ?? (() => {});
@@ -59,7 +61,13 @@ export function crearCiclo(opciones = {}) {
       publicacionesHoy: await base.publicacionesDeFecha(fecha),
       incompletos: new Map(), // turno -> { numero, quinielas: [...] }
       vistas: {},             // turno -> quinielas ya guardadas hoy (para saber cuáles son nuevas)
+      extractosHoy: {},       // turno -> { quiniela: extracto } (para armar los avisos con todo lo que hay)
     };
+    if (base.resultadosDeFecha) {
+      for (const t of (await base.resultadosDeFecha(fecha)).turnos ?? []) {
+        estado.extractosHoy[t.turno] = Object.fromEntries(Object.entries(t.quinielas).map(([q, e]) => [q, { quiniela: q, ...e }]));
+      }
+    }
     if (base.quinielasDeFecha) {
       for (const x of await base.quinielasDeFecha(fecha)) {
         estado.vistas[x.turno] = x.quinielas;
@@ -99,14 +107,24 @@ export function crearCiclo(opciones = {}) {
         } else {
           estado.incompletos.delete(sorteo.turno);
         }
-        // ¿Qué quinielas aparecieron recién? → avisar ya
-        const antes = estado.vistas[sorteo.turno] ?? [];
-        const nuevas = quinielas.filter((q) => !antes.includes(q));
-        estado.vistas[sorteo.turno] = [...new Set([...antes, ...quinielas])];
-        if (nuevas.length) alListo(sorteo, { nuevas, completo });
+        sumarAlDia(sorteo, quinielas);
       }
     }
     await anotarPublicacion(sorteo.fecha, sorteo.turno, sorteo.fuente, ahora, resumen);
+  }
+
+  // Junta lo que va llegando de cada turno de hoy y avisa las quinielas nuevas
+  function sumarAlDia(sorteo, quinielas) {
+    const t = sorteo.turno;
+    estado.extractosHoy[t] = { ...(estado.extractosHoy[t] ?? {}) };
+    for (const e of sorteo.extractos) estado.extractosHoy[t][e.quiniela] = e;
+    const antes = estado.vistas[t] ?? [];
+    const nuevas = quinielas.filter((q) => !antes.includes(q));
+    estado.vistas[t] = [...new Set([...antes, ...quinielas])];
+    if (!nuevas.length) return;
+    const todo = { ...sorteo, extractos: Object.values(estado.extractosHoy[t]) };
+    const completo = esperadas(t, 'lotba').every((q) => estado.vistas[t].includes(q));
+    alListo(todo, { nuevas, completo });
   }
 
   async function ejecutar(ahora) {
@@ -172,7 +190,8 @@ export function crearCiclo(opciones = {}) {
         continue;
       }
       try {
-        if (!estado.sorteosHoy[t] && (lotbaFallo || minutos >= RESPALDO_MIN)) {
+        const sinOficial = !estado.sorteosHoy[t] || estado.sorteosHoy[t] === 'provincia';
+        if (sinOficial && (lotbaFallo || minutos >= RESPALDO_MIN)) {
           const s = await fuentes.buscarSorteoQuinieleando(ar.fecha, t);
           if (s) await guardar(s, ahora, resumen);
           else resumen.faltantes.push(t);
@@ -185,6 +204,28 @@ export function crearCiclo(opciones = {}) {
       } catch (e) {
         paginaNacional ??= []; // no reintentar en esta misma llamada
         resumen.errores.push(`quinieleando (${t}): ${e.message}`);
+      }
+    }
+
+    // ---- 3b. Provincia desde su lotería oficial (suele publicar antes)
+    const sinProvincia = sorteados.filter((t) => minutosDesde(t) <= VENTANA_MIN && !(estado.vistas[t] ?? []).includes('provincia'));
+    if (sinProvincia.length && fuentes.buscarProvincia && base.agregarExtracto) {
+      try {
+        const pagina = await fuentes.buscarProvincia();
+        for (const x of pagina) {
+          if (x.fecha !== ar.fecha || !sinProvincia.includes(x.turno)) continue;
+          const extracto = { quiniela: 'provincia', numeros: x.numeros, letras: null };
+          const res = await base.agregarExtracto(x.fecha, x.turno, extracto, 'provincia');
+          await anotarPublicacion(x.fecha, x.turno, 'provincia', ahora, resumen);
+          if (res === 'omitido') { estado.vistas[x.turno] = [...new Set([...(estado.vistas[x.turno] ?? []), 'provincia'])]; continue; }
+          resumen.guardados.push({ fecha: x.fecha, turno: x.turno, fuente: 'provincia', resultado: res, quinielas: 1 });
+          estado.sorteosHoy[x.turno] ??= 'provincia';
+          const sorteo = { fecha: x.fecha, turno: x.turno, numero: null, fuente: 'provincia', extractos: [extracto] };
+          alGuardar(sorteo, res);
+          sumarAlDia(sorteo, ['provincia']);
+        }
+      } catch (e) {
+        resumen.errores.push(`Provincia: ${e.message}`);
       }
     }
 

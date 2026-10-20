@@ -151,6 +151,23 @@ test('Base real: quinielas guardadas de cada sorteo de una fecha', opciones, asy
   assert.deepEqual(mat.quinielas, Object.keys(MATUTINA_53009).sort());
 });
 
+test('Base real: agregar Provincia desde su lotería (antes o después de la Ciudad)', opciones, async () => {
+  const prov = { quiniela: 'provincia', numeros: MATUTINA_53009.provincia, letras: null };
+  assert.equal(await db.agregarExtracto('2026-10-09', 'matutina', prov), 'nuevo');
+  assert.equal(await db.agregarExtracto('2026-10-09', 'matutina', prov), 'omitido');
+  let r = await db.resultadosDeFecha('2026-10-09');
+  assert.equal(r.turnos[0].fuente, 'provincia');
+  assert.equal(r.turnos[0].numero, null);
+  // Después llega la Lotería de la Ciudad con su número y sus quinielas
+  const extractos = [{ quiniela: 'ciudad', numeros: MATUTINA_53009.ciudad, letras: null }];
+  assert.equal(await db.guardarSorteo({ fecha: '2026-10-09', turno: 'matutina', numero: 53014, fuente: 'lotba', extractos }), 'actualizado');
+  r = await db.resultadosDeFecha('2026-10-09');
+  assert.equal(r.turnos[0].fuente, 'lotba');
+  assert.deepEqual(Object.keys(r.turnos[0].quinielas).sort(), ['ciudad', 'provincia']);
+  assert.equal(await db.agregarExtracto('2026-10-08', 'matutina', prov), 'omitido'); // ya la tenía la Ciudad
+  await db.registrarPublicacion('2026-10-09', 'matutina', 'provincia', 9);
+});
+
 test('Base real: suscripciones a los avisos', opciones, async () => {
   const sus = { endpoint: 'https://push.ejemplo/abc', p256dh: 'p', auth: 'a', dispositivo: 'tel-1', preferencias: { cabezas: true }, jugadas: [{ numero: '79' }] };
   await db.guardarSuscripcion(sus);

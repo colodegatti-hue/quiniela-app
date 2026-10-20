@@ -8,7 +8,7 @@ create table if not exists sorteos (
   fecha date not null,
   turno text not null check (turno in ('previa','primera','matutina','vespertina','nocturna')),
   numero integer unique,                 -- n.º oficial de la Lotería (null si vino del respaldo)
-  fuente text not null check (fuente in ('lotba','quinieleando')),
+  fuente text not null check (fuente in ('lotba','quinieleando','provincia')),
   encontrado_en timestamptz not null default now(),
   actualizado_en timestamptz not null default now(),
   primary key (fecha, turno)
@@ -29,7 +29,7 @@ create table if not exists extractos (
 create table if not exists publicaciones (
   fecha date not null,
   turno text not null,
-  fuente text not null check (fuente in ('lotba','quinieleando')),
+  fuente text not null check (fuente in ('lotba','quinieleando','provincia')),
   visto_en timestamptz not null default now(),
   minutos_demora numeric(6,1),
   primary key (fecha, turno, fuente)
@@ -72,3 +72,9 @@ create table if not exists licencias (
 );
 
 alter table suscripciones add column if not exists codigo text;  -- código Pro del teléfono (para las alertas)
+
+-- Fuente 'provincia' = loteria.gba.gob.ar (agregada el 20/10/2026). Para bases viejas:
+alter table sorteos drop constraint if exists sorteos_fuente_check;
+alter table sorteos add constraint sorteos_fuente_check check (fuente in ('lotba','quinieleando','provincia'));
+alter table publicaciones drop constraint if exists publicaciones_fuente_check;
+alter table publicaciones add constraint publicaciones_fuente_check check (fuente in ('lotba','quinieleando','provincia'));
