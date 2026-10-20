@@ -101,7 +101,7 @@ app.get('/salud', (req, res) => {
 let ultimoTick = { hora: 0, resumen: null };
 app.get('/cron/tick', exigirClave, async (req, res) => {
   if (Date.now() - ultimoTick.hora < 45000) {
-    return res.json({ omitido: 'Ya se buscó hace menos de 45 segundos', anterior: ultimoTick.resumen });
+    return res.json({ ok: true, omitido: 'Ya se buscó hace menos de 45 segundos' });
   }
   ultimoTick.hora = Date.now();
   try {
@@ -114,7 +114,8 @@ app.get('/cron/tick', exigirClave, async (req, res) => {
     }
     ultimoTick.resumen = resumen;
     console.log('[tick]', JSON.stringify(resumen));
-    res.json(resumen);
+    // Respuesta corta (cron-job.org rechaza respuestas grandes). El detalle queda en los logs.
+    res.json({ ok: true, guardados: resumen.guardados?.length ?? 0, errores: resumen.errores?.length ?? 0, incompletos: resumen.incompletos ?? [] });
   } catch (e) {
     console.error('[tick] error:', e);
     ciclo.olvidarEstado();
