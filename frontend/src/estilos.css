@@ -578,3 +578,42 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 .confirmacion.aprobada { border-color: var(--exito); }
 .confirmacion.aprobada p { color: var(--exito); }
 .confirmacion.rechazada p { color: var(--rojo); }
+
+/* ---- Resultados: todo el día ---- */
+.vista-resultados { margin-top: 1rem; justify-content: space-between; }
+.vivo {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  color: var(--rojo); font-weight: 700; font-size: 0.85rem; letter-spacing: 0.06em;
+}
+.vivo::before, .vivo-punto {
+  content: ''; display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 50%;
+  background: var(--rojo); animation: latido 1.2s ease-in-out infinite;
+}
+.vivo-punto { margin-left: 0.3rem; vertical-align: 0.1em; }
+@keyframes latido { 50% { opacity: 0.25; } }
+.tabla-dia {
+  margin-top: 0.9rem; background: var(--superficie); border: 1px solid var(--linea);
+  border-radius: var(--radio); overflow: hidden;
+}
+.td-fila { display: grid; grid-template-columns: 4.3rem repeat(5, 1fr); align-items: stretch; }
+.td-fila + .td-fila { border-top: 1px solid var(--linea); }
+.td-cabecera { background: var(--verde-claro); }
+.td-turno {
+  border: 0; background: none; cursor: pointer; padding: 0.45rem 0;
+  font-family: var(--numeros); font-weight: 600; font-size: 0.95rem; color: var(--verde);
+}
+.td-quiniela { display: flex; align-items: center; padding-left: 0.6rem; font-weight: 600; font-size: 0.82rem; }
+.td-celda {
+  border: 0; background: none; cursor: pointer; padding: 0.4rem 0 0.3rem;
+  display: flex; flex-direction: column; align-items: center; gap: 0.05rem;
+  border-left: 1px solid var(--linea); color: var(--tinta);
+}
+.td-num { font-family: var(--numeros); font-weight: 700; font-size: 1.12rem; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+.td-celda:not(.td-vacia) .td-num { color: var(--rojo); }
+.td-vacia .td-num { color: var(--tenue); opacity: 0.6; }
+.td-dibujo { font-size: 0.9rem; line-height: 1; }
+.td-no { justify-content: center; color: var(--tenue); cursor: default; }
+.td-celda.marcado { background: var(--marcador); }
+.td-celda.marcado .td-num { color: var(--marcador-tinta); }
+.cabeza-caja { text-align: right; }
+.cabeza-sueno { margin: 0.1rem 0 0.5rem; color: var(--tenue); font-size: 0.85rem; }

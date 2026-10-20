@@ -9,6 +9,7 @@
 // =====================================================================
 import webpush from 'web-push';
 import { evaluarDirecta, UBICACIONES } from '../../shared/premios.js';
+import { suenoDe } from '../../shared/suenos.js';
 import { TURNOS, horaArgentina, minutosDelDia } from './horarios.js';
 import * as baseReal from './db.js';
 
@@ -75,7 +76,7 @@ export function armarAviso(sub, sorteo) {
   const cabezas = ORDEN.filter((q) => elegidas.includes(q))
     .map((q) => sorteo.extractos.find((e) => e.quiniela === q))
     .filter(Boolean)
-    .map((e) => `${NOMBRES[e.quiniela]} ${e.numeros[0]}`);
+    .map((e) => `${NOMBRES[e.quiniela]} ${e.numeros[0]} ${suenoDe(e.numeros[0])?.dibujo ?? ''}`.trim());
   const quiereCabezas = prefs.cabezas !== false && cabezas.length > 0;
 
   // 2. ¿Salió alguno de los números que sigue?
@@ -155,16 +156,40 @@ export function crearAvisos(opciones = {}) {
     }
   }
 
-  // Cuando sale un sorteo nuevo de hoy
-  async function avisarSorteo(sorteo) {
+  // Último aviso mandado a cada teléfono por turno: "endpoint|fecha|turno" -> { titulo, cuerpo }
+  const ultimos = new Map();
+
+  // Cuando aparecen quinielas de un sorteo de hoy (la Lotería las publica de a una).
+  // nuevas = quinielas que recién aparecieron. Se avisa apenas sale algo que a esa
+  // persona le importa; si después llega más, el aviso se actualiza SIN volver a sonar
+  // (salvo que cambie el título: por ejemplo, ahora salió su jugada).
+  async function avisarSorteo(sorteo, { nuevas } = {}) {
     const informe = { enviados: 0, fallidos: 0 };
     if (!activo()) return informe;
+    const nuevasSet = new Set(nuevas ?? sorteo.extractos.map((e) => e.quiniela));
+    if (ultimos.size > 20000) ultimos.clear();
     const subs = await base.listarSuscripciones();
     for (let i = 0; i < subs.length; i += 20) {
       await Promise.all(subs.slice(i, i + 20).map(async (sub) => {
+        const prefs = sub.preferencias || {};
         // Las alertas de número son de la versión Pro
-        const datos = armarAviso(sub.pro ? sub : { ...sub, preferencias: { ...sub.preferencias, alertas: [] } }, sorteo);
-        if (datos) await mandar(sub, datos, informe);
+        const alertas = sub.pro && Array.isArray(prefs.alertas) && prefs.alertas.length > 0;
+        const importan = new Set();
+        if (prefs.cabezas !== false) {
+          for (const q of Array.isArray(prefs.quinielas) && prefs.quinielas.length ? prefs.quinielas : QUINIELAS_POR_DEFECTO) importan.add(q);
+        }
+        for (const j of Array.isArray(sub.jugadas) ? sub.jugadas : []) {
+          if (j.fecha === sorteo.fecha && j.turnos?.includes(sorteo.turno)) for (const q of j.quinielas || []) importan.add(q);
+        }
+        if (!alertas && ![...nuevasSet].some((q) => importan.has(q))) return; // no llegó nada que le importe
+
+        const datos = armarAviso(sub.pro ? sub : { ...sub, preferencias: { ...prefs, alertas: [] } }, sorteo);
+        if (!datos) return;
+        const clave = `${sub.endpoint}|${sorteo.fecha}|${sorteo.turno}`;
+        const previo = ultimos.get(clave);
+        if (previo && previo.titulo === datos.titulo && previo.cuerpo === datos.cuerpo) return; // nada nuevo
+        ultimos.set(clave, { titulo: datos.titulo, cuerpo: datos.cuerpo });
+        await mandar(sub, { ...datos, silencioso: Boolean(previo && previo.titulo === datos.titulo) }, informe);
       }));
     }
     return informe;

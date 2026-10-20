@@ -60,10 +60,10 @@ const ciclo = crearCiclo({
     memoria.delete(s.fecha); // llegó un resultado: refrescar
     cacheEstadisticas.clear();
   },
-  // Sorteo de hoy completo (o incompleto hace 20 min) → avisar a los teléfonos, sin frenar la búsqueda
-  alListo: (s) => {
-    avisos.avisarSorteo(s)
-      .then((r) => console.log(`[avisos] ${s.turno} (${s.extractos.length} quinielas): ${r.enviados} enviados, ${r.fallidos} fallidos`))
+  // Aparecieron quinielas de un sorteo de hoy → avisar a los teléfonos al instante, sin frenar la búsqueda
+  alListo: (s, { nuevas } = {}) => {
+    avisos.avisarSorteo(s, { nuevas })
+      .then((r) => console.log(`[avisos] ${s.turno} (${s.extractos.length} quinielas, nuevas: ${nuevas?.join(',')}): ${r.enviados} enviados, ${r.fallidos} fallidos`))
       .catch((e) => console.error('[avisos] error:', e.message));
   },
 });

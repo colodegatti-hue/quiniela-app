@@ -25,6 +25,9 @@ self.addEventListener('push', (evento) => {
       icon: '/iconos/icono-192.png',
       badge: '/iconos/icono-192.png',
       tag: datos.etiqueta || 'quiniela',
+      // Si es una actualización del mismo aviso (llegaron más quinielas), no vuelve a sonar
+      renotify: !datos.silencioso,
+      silent: Boolean(datos.silencioso),
       data: { url: datos.url || '/#/resultados' },
     }),
   );
