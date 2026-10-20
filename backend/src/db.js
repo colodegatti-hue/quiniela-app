@@ -91,6 +91,33 @@ export async function guardarSorteo(sorteo) {
   }
 }
 
+// Agrega UNA quiniela que llegó de su lotería oficial (p. ej. Provincia desde loteria.gba.gob.ar).
+// Si el sorteo todavía no existe lo crea (sin número, fuente 'provincia'). No pisa una quiniela ya guardada.
+// Devuelve 'nuevo' (creó el sorteo), 'agregado' u 'omitido'.
+export async function agregarExtracto(fecha, turno, extracto, fuente = 'provincia') {
+  const cliente = await db().connect();
+  try {
+    await cliente.query('begin');
+    const previo = await cliente.query('select 1 from sorteos where fecha = $1 and turno = $2 for update', [fecha, turno]);
+    if (!previo.rowCount) {
+      await cliente.query('insert into sorteos (fecha, turno, numero, fuente) values ($1, $2, null, $3)', [fecha, turno, fuente]);
+    }
+    const r = await cliente.query(
+      `insert into extractos (fecha, turno, quiniela, numeros, letras) values ($1, $2, $3, $4, $5)
+       on conflict (fecha, turno, quiniela) do nothing`,
+      [fecha, turno, extracto.quiniela, extracto.numeros, extracto.letras ?? null],
+    );
+    await cliente.query('commit');
+    if (!r.rowCount) return 'omitido';
+    return previo.rowCount ? 'agregado' : 'nuevo';
+  } catch (e) {
+    await cliente.query('rollback').catch(() => {});
+    throw e;
+  } finally {
+    cliente.release();
+  }
+}
+
 // Anota la PRIMERA vez que una fuente mostró un resultado (no pisa)
 export async function registrarPublicacion(fecha, turno, fuente, minutosDemora) {
   await db().query(

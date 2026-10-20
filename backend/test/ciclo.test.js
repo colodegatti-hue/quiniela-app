@@ -316,3 +316,44 @@ test('Matutina y Nocturna de la Lotería esperan también a Montevideo', async (
   assert.equal(quinielasEsperadas('primera', 'lotba').length, 6);
   assert.equal(quinielasEsperadas('nocturna', 'quinieleando').length, 6);
 });
+
+test('Provincia desde su lotería oficial: llega antes, avisa y después se suma lo de la Ciudad', async () => {
+  const base = baseEnMemoria();
+  base.sorteos.set('2026-10-19|previa', { numero: 53052, fuente: 'lotba', extractos: [] });
+  base.sorteos.set('2026-10-19|primera', { numero: 53053, fuente: 'lotba', extractos: [] });
+  base.quinielasDeFecha = async () => [
+    { turno: 'previa', numero: 53052, fuente: 'lotba', quinielas: [...ORDEN_PUBLICACION] },
+    { turno: 'primera', numero: 53053, fuente: 'lotba', quinielas: [...ORDEN_PUBLICACION] },
+  ];
+  const agregados = [];
+  base.agregarExtracto = async (fecha, turno, e) => {
+    agregados.push(`${turno}:${e.quiniela}`);
+    const k = `${fecha}|${turno}`;
+    if (!base.sorteos.has(k)) { base.sorteos.set(k, { numero: null, fuente: 'provincia', extractos: [e] }); return 'nuevo'; }
+    return 'agregado';
+  };
+  const lot = lotbaDeAPoco(53054, '2026-10-19', 'matutina');
+  const f = lot.fuentes();
+  let paginaProvincia = [];
+  f.buscarProvincia = async () => paginaProvincia;
+  const listos = [];
+  const ciclo = crearCiclo({ base, fuentes: f, alListo: (s, x) => listos.push(`${s.turno}:${s.extractos.map((e) => e.quiniela).join('+')}:${x.nuevas.join(',')}`) });
+  const a15 = (min) => new Date(Date.UTC(2026, 9, 19, 18, min)); // 15:mm
+
+  await ciclo.tick(a15(5));
+  assert.deepEqual(listos, []);
+
+  paginaProvincia = [{ fecha: '2026-10-19', turno: 'matutina', numeros: CIUDAD }, { fecha: '2026-10-18', turno: 'nocturna', numeros: CIUDAD }];
+  let r = await ciclo.tick(a15(9));
+  assert.deepEqual(agregados, ['matutina:provincia']); // solo el de hoy
+  assert.deepEqual(listos, ['matutina:provincia:provincia']);
+  assert.deepEqual(r.publicaciones, [{ turno: 'matutina', fuente: 'provincia', minutos: 9 }]);
+
+  r = await ciclo.tick(a15(11)); // ya está: no la vuelve a agregar
+  assert.equal(agregados.length, 1);
+
+  lot.publicar(1); // la Lotería de la Ciudad publica Ciudad
+  r = await ciclo.tick(a15(18));
+  assert.equal(r.guardados[0].resultado, 'actualizado');
+  assert.deepEqual(listos.slice(1), ['matutina:provincia+ciudad:ciudad']); // el aviso lleva las dos
+});
