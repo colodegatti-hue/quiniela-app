@@ -523,3 +523,58 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
   width: 5.5rem; border: 1px solid var(--linea); border-radius: 10px; background: var(--fondo);
   padding: 0.4rem 0.7rem; font-family: var(--numeros); font-weight: 700; font-size: 1.3rem; color: var(--rojo);
 }
+
+/* ---- Pro ---- */
+.boton-pro {
+  margin-left: auto; align-self: center;
+  color: #fff; text-decoration: none; font-weight: 600; font-size: 0.85rem;
+  border: 1.5px solid rgba(255,255,255,0.7); border-radius: 999px; padding: 0.2rem 0.75rem;
+}
+.boton-pro.es-pro { background: var(--marcador); color: #14261e; border-color: var(--marcador); font-family: var(--numeros); font-weight: 700; letter-spacing: 0.08em; }
+.etiqueta-pro {
+  display: inline-block; margin-left: 0.35rem; padding: 0 0.4rem; border-radius: 999px;
+  background: var(--marcador); color: var(--marcador-tinta); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; vertical-align: 0.1em;
+}
+.pro-sello {
+  display: inline-block; margin: 0 0 0.4rem; padding: 0.1rem 0.6rem; border-radius: 6px;
+  background: var(--marcador); color: var(--marcador-tinta);
+  font-family: var(--numeros); font-weight: 700; letter-spacing: 0.12em;
+}
+.pro-sello.chico { font-size: 0.8rem; }
+.candado-pro { text-align: left; }
+.candado-pro .boton { display: inline-block; text-decoration: none; margin-top: 0.4rem; }
+.intro-pro { font-size: 1.1rem; margin: 0.6rem 0 0; }
+.beneficios { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 0.6rem; }
+.beneficios li {
+  display: grid; gap: 0.1rem; padding: 0.8rem 1rem;
+  background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio);
+  border-left: 4px solid var(--verde);
+}
+.beneficios span { color: var(--tenue); font-size: 0.92rem; }
+.planes { display: grid; gap: 0.7rem; }
+.plan {
+  position: relative; display: grid; gap: 0.1rem; text-align: left; cursor: pointer;
+  border: 1.5px solid var(--linea); border-radius: var(--radio); background: var(--fondo);
+  padding: 0.85rem 1rem;
+}
+.plan.destacado { border-color: var(--verde); background: var(--verde-claro); }
+.plan:disabled { opacity: 0.6; cursor: default; }
+.plan-etiqueta {
+  position: absolute; top: 0.7rem; right: 0.8rem; background: var(--verde); color: #fff;
+  border-radius: 999px; padding: 0.05rem 0.55rem; font-size: 0.75rem; font-weight: 700;
+}
+@media (prefers-color-scheme: dark) { .plan-etiqueta { color: #0b1a13; } }
+.plan-nombre { font-weight: 600; }
+.plan-precio { font-family: var(--numeros); font-weight: 700; font-size: 1.9rem; line-height: 1.1; color: var(--tinta); }
+.plan-detalle { color: var(--tenue); font-size: 0.88rem; }
+.tarjeta-pro { text-align: center; border-color: var(--verde); }
+.tarjeta-pro p { margin: 0 0 0.3rem; }
+.pro-codigo { font-family: var(--numeros); font-weight: 700; font-size: 3rem; letter-spacing: 0.12em; color: var(--rojo); line-height: 1.1; }
+.entrada-codigo {
+  width: 10rem; border: 1px solid var(--linea); border-radius: 10px; background: var(--fondo);
+  padding: 0.4rem 0.7rem; font-family: var(--numeros); font-weight: 700; font-size: 1.5rem; letter-spacing: 0.12em;
+}
+.confirmacion p { margin: 0 0 0.4rem; font-weight: 600; }
+.confirmacion.aprobada { border-color: var(--exito); }
+.confirmacion.aprobada p { color: var(--exito); }
+.confirmacion.rechazada p { color: var(--rojo); }

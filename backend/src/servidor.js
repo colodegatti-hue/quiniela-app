@@ -13,6 +13,8 @@ import {
   guardarSuscripcion, actualizarSuscripcion, borrarSuscripcion,
 } from './db.js';
 import { crearAvisos, pushConfigurado } from './avisos.js';
+import { crearPro, planes, codigoValido } from './pro.js';
+import { mpConfigurado, crearPreferencia } from './mercadopago.js';
 import { crearCiclo } from './ciclo.js';
 import { horaArgentina, QUINIELAS, TURNOS } from './horarios.js';
 
@@ -49,6 +51,7 @@ async function obtenerResultados(fecha) {
 }
 
 const avisos = crearAvisos();
+const pro = crearPro();
 const cacheEstadisticas = new Map(); // "quiniela|dias|fecha" -> datos (se borra cuando llega un sorteo)
 const IDS_ESTADISTICAS = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios', 'mendoza', 'montevideo'];
 
@@ -223,13 +226,14 @@ app.get('/api/push/clave', (req, res) => {
 });
 
 app.post('/api/push/suscribir', async (req, res) => {
-  const { suscripcion, dispositivo, preferencias, jugadas } = req.body || {};
+  const { suscripcion, dispositivo, preferencias, jugadas, codigo } = req.body || {};
   if (!validarSuscripcion(suscripcion)) return res.status(400).json({ error: 'Suscripción inválida' });
   try {
     await guardarSuscripcion({
       endpoint: suscripcion.endpoint, p256dh: suscripcion.keys.p256dh, auth: suscripcion.keys.auth,
       dispositivo: typeof dispositivo === 'string' ? dispositivo.slice(0, 64) : null,
       preferencias: limpiarPreferencias(preferencias), jugadas: limpiarJugadas(jugadas),
+      codigo: codigoValido(codigo) ? String(codigo) : null,
     });
     res.json({ ok: true });
   } catch (e) {
@@ -239,12 +243,13 @@ app.post('/api/push/suscribir', async (req, res) => {
 });
 
 app.post('/api/push/actualizar', async (req, res) => {
-  const { endpoint, preferencias, jugadas } = req.body || {};
+  const { endpoint, preferencias, jugadas, codigo } = req.body || {};
   if (typeof endpoint !== 'string') return res.status(400).json({ error: 'Falta el endpoint' });
   try {
     const ok = await actualizarSuscripcion(endpoint, {
       preferencias: preferencias ? limpiarPreferencias(preferencias) : null,
       jugadas: jugadas ? limpiarJugadas(jugadas) : null,
+      codigo: codigoValido(codigo) ? String(codigo) : null,
     });
     res.status(ok ? 200 : 404).json({ ok });
   } catch (e) {
@@ -270,6 +275,90 @@ app.post('/api/push/prueba', async (req, res) => {
     res.json(await avisos.prueba(endpoint));
   } catch (e) {
     res.status(503).json({ error: 'No se pudo enviar la prueba' });
+  }
+});
+
+// ---- Versión Pro ---------------------------------------------------
+// Freno simple contra quien prueba códigos al azar: 15 intentos cada 10 minutos por IP
+const intentos = new Map(); // ip -> { n, desde }
+function demasiadosIntentos(req) {
+  const ip = String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+  const ahora = Date.now();
+  const x = intentos.get(ip);
+  if (!x || ahora - x.desde > 600000) { intentos.set(ip, { n: 1, desde: ahora }); return false; }
+  x.n++;
+  if (intentos.size > 5000) intentos.clear();
+  return x.n > 15;
+}
+
+app.get('/api/pro/planes', (req, res) => {
+  const p = planes();
+  res.json({
+    disponible: mpConfigurado(),
+    planes: Object.fromEntries(Object.entries(p).map(([id, x]) => [id, { precio: x.precio, dias: x.dias }])),
+  });
+});
+
+app.post('/api/pro/comprar', async (req, res) => {
+  if (!mpConfigurado()) return res.status(503).json({ error: 'El pago todavía no está habilitado' });
+  const { plan, codigo } = req.body || {};
+  try {
+    const r = await pro.comprar({ plan, codigo });
+    if (r.error) return res.status(400).json(r);
+    res.json(r);
+  } catch (e) {
+    console.error('[pro] comprar:', e.message);
+    res.status(503).json({ error: 'No se pudo iniciar el pago. Probá de nuevo en un rato.' });
+  }
+});
+
+// La app la llama al volver de Mercado Pago: /api/pro/confirmar?ref=...
+app.get('/api/pro/confirmar', async (req, res) => {
+  const ref = String(req.query.ref || '');
+  if (!/^[0-9a-f-]{36}$/.test(ref)) return res.status(400).json({ error: 'Referencia inválida' });
+  try {
+    const r = await pro.confirmar(ref);
+    if (r.estado === 'aprobada') console.log(`[pro] compra aprobada ${ref.slice(0, 8)}`);
+    res.json(r);
+  } catch (e) {
+    console.error('[pro] confirmar:', e.message);
+    res.status(503).json({ error: 'No se pudo consultar el pago' });
+  }
+});
+
+// Aviso automático de Mercado Pago (webhook). Siempre responde 200 rápido.
+app.post('/api/pro/aviso-pago', (req, res) => {
+  const tipo = req.body?.type || req.query.type || req.query.topic;
+  const id = req.body?.data?.id || req.query['data.id'] || req.query.id;
+  res.sendStatus(200);
+  if (tipo !== 'payment' || !id) return;
+  pro.procesarAviso(id)
+    .then((r) => r.ok && !r.ya && console.log(`[pro] pago ${id} aprobado por aviso`))
+    .catch((e) => console.error('[pro] aviso:', e.message));
+});
+
+// ¿Este código Pro está vigente? (anota el teléfono, máx. 3 por código)
+app.post('/api/pro/verificar', async (req, res) => {
+  if (demasiadosIntentos(req)) return res.status(429).json({ activo: false, error: 'Demasiados intentos. Esperá unos minutos.' });
+  const { codigo, dispositivo } = req.body || {};
+  try {
+    res.json(await pro.verificar(String(codigo ?? ''), dispositivo));
+  } catch (e) {
+    console.error('[pro] verificar:', e.message);
+    res.status(503).json({ error: 'No se pudo verificar el código' });
+  }
+});
+
+// Diagnóstico: crea un link de pago de prueba SIN guardar nada (para ver que Mercado Pago responde)
+app.get('/api/pro/prueba-mp', exigirClave, async (req, res) => {
+  try {
+    const p = await crearPreferencia({
+      titulo: 'Prueba', precio: 10, referencia: `prueba-${Date.now()}`,
+      urlVuelta: 'https://quiniela-app-i0j2.onrender.com/', urlAvisos: 'https://quiniela-backend-ou9g.onrender.com/api/pro/aviso-pago',
+    });
+    res.json({ ok: true, preferencia: p.id, linkDePrueba: p.url.includes('sandbox') ? 'sandbox' : 'normal', tipoDeToken: (process.env.MP_ACCESS_TOKEN || '').split('-')[0] });
+  } catch (e) {
+    res.json({ ok: false, error: e.message });
   }
 });
 

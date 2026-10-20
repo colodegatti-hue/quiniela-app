@@ -142,3 +142,14 @@ test('Sin claves configuradas no envía nada', async () => {
   const avisos = crearAvisos({ base: baseFalsa([{ endpoint: 'x', preferencias: {} }]), activo: () => false, enviar: async () => { throw new Error('no'); } });
   assert.deepEqual(await avisos.avisarSorteo(SORTEO), { enviados: 0, fallidos: 0 });
 });
+
+test('Las alertas de número solo se mandan a teléfonos Pro', async () => {
+  const subs = [
+    { endpoint: 'https://push/gratis', preferencias: { alertas: ['50'] }, jugadas: [], pro: false },
+    { endpoint: 'https://push/pro', preferencias: { alertas: ['50'] }, jugadas: [], pro: true },
+  ];
+  const enviados = [];
+  const avisos = crearAvisos({ base: baseFalsa(subs), activo: () => true, enviar: async (s, d) => enviados.push([s.endpoint, d.titulo]) });
+  await avisos.avisarSorteo(SORTEO);
+  assert.deepEqual(enviados, [['https://push/gratis', 'Cabezas de la Matutina'], ['https://push/pro', 'Salió el 50 en la Matutina']]);
+});

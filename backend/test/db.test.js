@@ -16,7 +16,7 @@ before(async () => {
   const esquema = await readFile(new URL('../sql/esquema.sql', import.meta.url), 'utf8');
   const c = new pg.Client({ connectionString: URL_PRUEBA });
   await c.connect();
-  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones cascade');
+  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones, compras, licencias cascade');
   await c.query(esquema);
   await c.query(esquema); // se puede correr dos veces
   await c.end();
@@ -167,4 +167,37 @@ test('Base real: suscripciones a los avisos', opciones, async () => {
   for (let i = 0; i < 5; i++) await db.registrarFalloEnvio(sus.endpoint);
   lista = await db.listarSuscripciones();
   assert.equal(lista.length, 0); // a los 5 fallos se borra
+});
+
+test('Base real: compra Pro aprobada una sola vez, renovación y teléfonos', opciones, async () => {
+  await db.crearCompra({ referencia: 'r1', codigo: '012345', plan: 'mensual', precio: 1990 });
+  assert.equal(await db.codigoUsado('012345'), true);
+  assert.equal(await db.codigoUsado('999999'), false);
+  assert.equal(await db.buscarLicencia('012345'), null);
+  assert.deepEqual(await db.buscarCompra('r1'), { referencia: 'r1', codigo: '012345', plan: 'mensual', precio: 1990, estado: 'pendiente', pago_id: null });
+  const l = await db.aprobarCompra('r1', 555, 31);
+  assert.equal(l.codigo, '012345');
+  const dias = (new Date(l.vence) - Date.now()) / 864e5;
+  assert.ok(dias > 30.9 && dias < 31.1);
+  const otra = await db.aprobarCompra('r1', 555, 31); // repetido: no suma
+  assert.equal(new Date(otra.vence).getTime(), new Date(l.vence).getTime());
+  await db.crearCompra({ referencia: 'r2', codigo: '012345', plan: 'anual', precio: 14990 });
+  const ren = await db.aprobarCompra('r2', 556, 366);
+  const dias2 = (new Date(ren.vence) - Date.now()) / 864e5;
+  assert.ok(dias2 > 396.9 && dias2 < 397.1);
+  assert.equal(ren.plan, 'anual');
+  for (const t of ['a', 'b', 'c', 'a']) assert.equal(await db.vincularDispositivo('012345', t, 3), true);
+  assert.equal(await db.vincularDispositivo('012345', 'd', 3), false);
+  assert.deepEqual((await db.buscarLicencia('012345')).dispositivos, ['a', 'b', 'c']);
+  await assert.rejects(db.crearCompra({ referencia: 'r3', codigo: '1', plan: 'diario', precio: 1 }));
+});
+
+test('Base real: suscripción con código Pro vigente', opciones, async () => {
+  await db.guardarSuscripcion({ endpoint: 'https://push/pro', p256dh: 'p', auth: 'a', preferencias: {}, jugadas: [], codigo: '012345' });
+  await db.guardarSuscripcion({ endpoint: 'https://push/gratis', p256dh: 'p', auth: 'a', preferencias: {}, jugadas: [] });
+  const lista = await db.listarSuscripciones();
+  assert.equal(lista.find((x) => x.endpoint === 'https://push/pro').pro, true);
+  assert.equal(lista.find((x) => x.endpoint === 'https://push/gratis').pro, false);
+  await db.actualizarSuscripcion('https://push/gratis', { codigo: '012345' });
+  assert.equal((await db.buscarSuscripcion('https://push/gratis')).pro, true);
 });
