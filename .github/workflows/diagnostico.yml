@@ -1,0 +1,27 @@
+# Diagnóstico manual: llama a una dirección del servidor que pide la clave.
+# Se usa desde la nube de Claude para probar cosas (por ejemplo, Mercado Pago).
+name: Diagnóstico
+
+on:
+  workflow_dispatch:
+    inputs:
+      ruta:
+        description: 'Ruta del servidor (ej.: /api/pro/prueba-mp)'
+        required: true
+        default: '/api/pro/prueba-mp'
+
+jobs:
+  llamar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Llamar al servidor
+        env:
+          CLAVE_CRON: ${{ secrets.CLAVE_CRON }}
+          RUTA: ${{ inputs.ruta }}
+        run: |
+          case "$RUTA" in /api/*) ;; *) echo "Ruta inválida"; exit 1;; esac
+          SEP='?'; case "$RUTA" in *\?*) SEP='&';; esac
+          curl -sS --retry 2 --retry-delay 20 --max-time 150 \
+            "https://quiniela-backend-ou9g.onrender.com${RUTA}${SEP}clave=${CLAVE_CRON}"
+          echo

@@ -3,6 +3,7 @@
 // =====================================================================
 import { API } from './datos.js';
 import { idDispositivo, cargarJugadas } from './jugadas.js';
+import { leerPro } from './pro.js';
 
 const CLAVE_PREFS = 'quiniela.avisos.v1';
 
@@ -81,6 +82,7 @@ export async function activarAvisos(preferencias = cargarPreferencias()) {
     dispositivo: idDispositivo(),
     preferencias,
     jugadas: cargarJugadas(),
+    codigo: leerPro()?.codigo,
   });
   guardarPreferencias(preferencias);
   return sub;

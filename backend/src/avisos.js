@@ -162,7 +162,8 @@ export function crearAvisos(opciones = {}) {
     const subs = await base.listarSuscripciones();
     for (let i = 0; i < subs.length; i += 20) {
       await Promise.all(subs.slice(i, i + 20).map(async (sub) => {
-        const datos = armarAviso(sub, sorteo);
+        // Las alertas de número son de la versión Pro
+        const datos = armarAviso(sub.pro ? sub : { ...sub, preferencias: { ...sub.preferencias, alertas: [] } }, sorteo);
         if (datos) await mandar(sub, datos, informe);
       }));
     }

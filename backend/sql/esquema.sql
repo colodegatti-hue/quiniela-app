@@ -47,3 +47,28 @@ create table if not exists suscripciones (
   creada timestamptz not null default now(),
   actualizada timestamptz not null default now()
 );
+
+-- ---- Versión Pro ----------------------------------------------------
+-- Cada intento de compra (una preferencia de Mercado Pago)
+create table if not exists compras (
+  referencia text primary key,           -- external_reference en Mercado Pago
+  codigo text not null,                  -- código de 6 dígitos que activa (nuevo o renovación)
+  plan text not null check (plan in ('mensual','anual')),
+  precio numeric(12,2) not null,
+  estado text not null default 'pendiente' check (estado in ('pendiente','aprobada')),
+  pago_id text unique,
+  creada timestamptz not null default now(),
+  aprobada timestamptz
+);
+
+-- Un código Pro activo (se renueva sumando días)
+create table if not exists licencias (
+  codigo text primary key check (codigo ~ '^[0-9]{6}$'),
+  plan text not null,
+  vence timestamptz not null,
+  dispositivos text[] not null default '{}',   -- teléfonos que usan el código (máx. 3)
+  nota text,                                   -- p. ej. 'cortesía'
+  creada timestamptz not null default now()
+);
+
+alter table suscripciones add column if not exists codigo text;  -- código Pro del teléfono (para las alertas)

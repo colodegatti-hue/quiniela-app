@@ -252,26 +252,28 @@ export async function estadisticas(quiniela, desde) {
 
 // ---- Avisos (notificaciones push) ----------------------------------
 
-export async function guardarSuscripcion({ endpoint, p256dh, auth, dispositivo, preferencias, jugadas }) {
+export async function guardarSuscripcion({ endpoint, p256dh, auth, dispositivo, preferencias, jugadas, codigo }) {
   await db().query(
-    `insert into suscripciones (endpoint, p256dh, auth, dispositivo, preferencias, jugadas)
-     values ($1, $2, $3, $4, $5, $6)
+    `insert into suscripciones (endpoint, p256dh, auth, dispositivo, preferencias, jugadas, codigo)
+     values ($1, $2, $3, $4, $5, $6, $7)
      on conflict (endpoint) do update set
        p256dh = excluded.p256dh, auth = excluded.auth, dispositivo = excluded.dispositivo,
-       preferencias = excluded.preferencias, jugadas = excluded.jugadas, fallos = 0, actualizada = now()`,
-    [endpoint, p256dh, auth, dispositivo ?? null, JSON.stringify(preferencias ?? {}), JSON.stringify(jugadas ?? [])],
+       preferencias = excluded.preferencias, jugadas = excluded.jugadas, codigo = excluded.codigo,
+       fallos = 0, actualizada = now()`,
+    [endpoint, p256dh, auth, dispositivo ?? null, JSON.stringify(preferencias ?? {}), JSON.stringify(jugadas ?? []), codigo ?? null],
   );
 }
 
-// Cambia preferencias y/o jugadas. Devuelve false si esa suscripción no existe.
-export async function actualizarSuscripcion(endpoint, { preferencias, jugadas }) {
+// Cambia preferencias, jugadas y/o código Pro. Devuelve false si esa suscripción no existe.
+export async function actualizarSuscripcion(endpoint, { preferencias, jugadas, codigo }) {
   const r = await db().query(
     `update suscripciones set
        preferencias = coalesce($2::jsonb, preferencias),
        jugadas = coalesce($3::jsonb, jugadas),
+       codigo = coalesce($4, codigo),
        actualizada = now()
      where endpoint = $1`,
-    [endpoint, preferencias ? JSON.stringify(preferencias) : null, jugadas ? JSON.stringify(jugadas) : null],
+    [endpoint, preferencias ? JSON.stringify(preferencias) : null, jugadas ? JSON.stringify(jugadas) : null, codigo ?? null],
   );
   return r.rowCount > 0;
 }
@@ -280,13 +282,19 @@ export async function borrarSuscripcion(endpoint) {
   await db().query('delete from suscripciones where endpoint = $1', [endpoint]);
 }
 
+// pro = el teléfono tiene un código Pro vigente
+const CONSULTA_SUSCRIPCIONES = `
+  select s.endpoint, s.p256dh, s.auth, s.preferencias, s.jugadas,
+         coalesce(l.vence > now(), false) as pro
+  from suscripciones s left join licencias l on l.codigo = s.codigo`;
+
 export async function listarSuscripciones() {
-  const r = await db().query('select endpoint, p256dh, auth, preferencias, jugadas from suscripciones');
+  const r = await db().query(CONSULTA_SUSCRIPCIONES);
   return r.rows;
 }
 
 export async function buscarSuscripcion(endpoint) {
-  const r = await db().query('select endpoint, p256dh, auth, preferencias, jugadas from suscripciones where endpoint = $1', [endpoint]);
+  const r = await db().query(`${CONSULTA_SUSCRIPCIONES} where s.endpoint = $1`, [endpoint]);
   return r.rows[0] ?? null;
 }
 
@@ -294,4 +302,86 @@ export async function buscarSuscripcion(endpoint) {
 export async function registrarFalloEnvio(endpoint) {
   await db().query('update suscripciones set fallos = fallos + 1 where endpoint = $1', [endpoint]);
   await db().query('delete from suscripciones where endpoint = $1 and fallos >= 5', [endpoint]);
+}
+
+// ---- Versión Pro -----------------------------------------------------
+
+const filaLicencia = (x) => (!x ? null : { codigo: x.codigo, plan: x.plan, vence: x.vence, dispositivos: x.dispositivos });
+
+export async function crearCompra({ referencia, codigo, plan, precio }) {
+  await db().query('insert into compras (referencia, codigo, plan, precio) values ($1, $2, $3, $4)', [referencia, codigo, plan, precio]);
+}
+
+export async function buscarCompra(referencia) {
+  const r = await db().query('select referencia, codigo, plan, precio::float as precio, estado, pago_id from compras where referencia = $1', [referencia]);
+  return r.rows[0] ?? null;
+}
+
+// ¿Ese código ya existe (activo, vencido o en una compra pendiente)?
+export async function codigoUsado(codigo) {
+  const r = await db().query(
+    'select exists (select 1 from licencias where codigo = $1) or exists (select 1 from compras where codigo = $1) as usado',
+    [codigo],
+  );
+  return r.rows[0].usado;
+}
+
+// Aprueba una compra UNA sola vez y crea o extiende la licencia.
+// Devuelve la licencia (o null si la compra no existe).
+export async function aprobarCompra(referencia, pagoId, dias) {
+  const cliente = await db().connect();
+  try {
+    await cliente.query('begin');
+    const c = await cliente.query(
+      `update compras set estado = 'aprobada', pago_id = $2, aprobada = now()
+       where referencia = $1 and estado = 'pendiente' returning codigo, plan`,
+      [referencia, String(pagoId)],
+    );
+    if (c.rowCount) {
+      const { codigo, plan } = c.rows[0];
+      await cliente.query(
+        `insert into licencias (codigo, plan, vence) values ($1, $2, now() + make_interval(days => $3))
+         on conflict (codigo) do update set
+           plan = excluded.plan,
+           vence = greatest(licencias.vence, now()) + make_interval(days => $3)`,
+        [codigo, plan, dias],
+      );
+    }
+    await cliente.query('commit');
+  } catch (e) {
+    await cliente.query('rollback').catch(() => {});
+    throw e;
+  } finally {
+    cliente.release();
+  }
+  const r = await db().query(
+    'select l.* from licencias l join compras c on c.codigo = l.codigo where c.referencia = $1 and c.estado = $2',
+    [referencia, 'aprobada'],
+  );
+  return filaLicencia(r.rows[0]);
+}
+
+export async function buscarLicencia(codigo) {
+  const r = await db().query('select * from licencias where codigo = $1', [codigo]);
+  return filaLicencia(r.rows[0]);
+}
+
+// Anota el teléfono en el código. false si ya hay "maximo" teléfonos distintos.
+export async function vincularDispositivo(codigo, dispositivo, maximo = 3) {
+  const r = await db().query(
+    `update licencias set dispositivos = array_append(dispositivos, $2)
+     where codigo = $1 and not ($2 = any(dispositivos)) and cardinality(dispositivos) < $3`,
+    [codigo, dispositivo, maximo],
+  );
+  if (r.rowCount) return true;
+  const ya = await db().query('select $2 = any(dispositivos) as esta from licencias where codigo = $1', [codigo, dispositivo]);
+  return Boolean(ya.rows[0]?.esta);
+}
+
+// Licencia de regalo (la crea a mano el dueño)
+export async function crearLicenciaCortesia(codigo, dias, nota = 'cortesía') {
+  await db().query(
+    "insert into licencias (codigo, plan, vence, nota) values ($1, 'anual', now() + make_interval(days => $2), $3)",
+    [codigo, dias, nota],
+  );
 }

@@ -5,6 +5,8 @@ import ComoSeJuega from './pantallas/ComoSeJuega.jsx';
 import Buscar from './pantallas/Buscar.jsx';
 import Estadisticas from './pantallas/Estadisticas.jsx';
 import Suenos from './pantallas/Suenos.jsx';
+import Pro from './pantallas/Pro.jsx';
+import { usePro, tomarRetorno, revisarPro } from './util/pro.js';
 
 const PANTALLAS = {
   resultados: { titulo: 'Resultados', componente: Resultados },
@@ -13,7 +15,10 @@ const PANTALLAS = {
   suenos: { componente: Suenos, seccion: 'estadisticas' }, // dentro de "Números"
   buscar: { titulo: 'Buscar', componente: Buscar },
   'como-se-juega': { titulo: 'Cómo jugar', componente: ComoSeJuega },
+  pro: { componente: Pro }, // se entra desde el botón de arriba
 };
+
+tomarRetorno(); // si vuelve de pagar en Mercado Pago, ir a la pantalla Pro
 
 function pantallaActual() {
   const id = window.location.hash.replace(/^#\/?/, '');
@@ -22,6 +27,9 @@ function pantallaActual() {
 
 export default function App() {
   const [pantalla, setPantalla] = useState(pantallaActual);
+  const { pro } = usePro();
+
+  useEffect(() => { revisarPro(); }, []);
 
   useEffect(() => {
     const alCambiar = () => {
@@ -39,6 +47,7 @@ export default function App() {
       <header className="barra">
         <p className="marca">Quiniela</p>
         <p className="marca-sub">Colo Apps</p>
+        <a className={`boton-pro${pro ? ' es-pro' : ''}`} href="#/pro">{pro ? 'PRO' : 'Hacete Pro'}</a>
       </header>
       <main>
         <Componente />

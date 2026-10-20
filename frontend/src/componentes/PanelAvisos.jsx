@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { QUINIELAS } from '../util/datos.js';
+import { usePro } from '../util/pro.js';
 import {
   soporteAvisos, suscripcionActual, activarAvisos, desactivarAvisos, cambiarPreferencias, avisoDePrueba, cargarPreferencias,
 } from '../util/avisos.js';
@@ -13,6 +14,7 @@ const TEXTOS_SIN_SOPORTE = {
 // "Avisame cuando salga el 47": números a seguir en cualquier quiniela
 function AlertasNumeros({ prefs, cambiar }) {
   const [nuevo, setNuevo] = useState('');
+  const { pro } = usePro();
   const alertas = prefs.alertas ?? [];
   const lleno = alertas.length >= 10;
 
@@ -22,6 +24,16 @@ function AlertasNumeros({ prefs, cambiar }) {
     if (!/^\d{1,2}$/.test(nuevo) || alertas.includes(n) || lleno) return;
     cambiar({ ...prefs, alertas: [...alertas, n] });
     setNuevo('');
+  }
+
+  if (!pro) {
+    return (
+      <div className="alertas">
+        <p className="alertas-titulo">Avisarme cuando salga un número <span className="etiqueta-pro">Pro</span></p>
+        <p className="tenue">Con Pro te avisamos al instante cuando sale el número que seguís, en cualquier quiniela.</p>
+        <a className="enlace" href="#/pro">Ver Quiniela Pro</a>
+      </div>
+    );
   }
 
   return (

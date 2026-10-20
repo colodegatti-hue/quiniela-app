@@ -4,6 +4,8 @@ import { QUINIELAS, nombreQuiniela, turnoPorId } from '../util/datos.js';
 import { fechaCorta } from '../util/fechas.js';
 import { obtenerEstadisticas, salidores, atrasados, campos, intensidad } from '../util/estadisticas.js';
 import { suenoDe } from '../util/suenos.js';
+import { usePro, GRATIS } from '../util/pro.js';
+import CandadoPro from '../componentes/CandadoPro.jsx';
 
 const PERIODOS = [30, 60, 90];
 const CLAVE = 'quiniela.estadisticas.v1';
@@ -47,6 +49,8 @@ export default function Estadisticas() {
   const [estado, setEstado] = useState({ cargando: true, datos: null, error: null });
   const [elegido, setElegido] = useState(null);
   const { quiniela, dias, donde } = filtros;
+  const { pro } = usePro();
+  const bloqueado = !pro && (!GRATIS.quinielas.includes(quiniela) || !GRATIS.dias.includes(dias));
 
   function cambiar(campo, valor) {
     const nuevos = { ...filtros, [campo]: valor };
@@ -55,13 +59,14 @@ export default function Estadisticas() {
   }
 
   useEffect(() => {
+    if (bloqueado) return undefined;
     let vigente = true;
     setEstado((e) => ({ ...e, cargando: true, error: null }));
     obtenerEstadisticas(quiniela, dias)
       .then((datos) => vigente && setEstado({ cargando: false, datos, error: null }))
       .catch(() => vigente && setEstado({ cargando: false, datos: null, error: 'No pudimos traer las estadísticas. Revisá tu conexión y probá de nuevo.' }));
     return () => { vigente = false; };
-  }, [quiniela, dias]);
+  }, [quiniela, dias, bloqueado]);
 
   const { datos } = estado;
   const c = campos(donde);
@@ -85,7 +90,7 @@ export default function Estadisticas() {
         <div className="opciones desplazable" role="group" aria-label="Quiniela">
           {QUINIELAS.map((q) => (
             <button key={q.id} type="button" className={`opcion${quiniela === q.id ? ' activa' : ''}`} aria-pressed={quiniela === q.id} onClick={() => cambiar('quiniela', q.id)}>
-              {q.nombre}
+              {q.nombre}{!pro && !GRATIS.quinielas.includes(q.id) && <span className="etiqueta-pro">Pro</span>}
             </button>
           ))}
         </div>
@@ -95,15 +100,21 @@ export default function Estadisticas() {
             <button type="button" aria-pressed={donde === 'a_los_20'} onClick={() => cambiar('donde', 'a_los_20')}>En los 20</button>
           </div>
           <select aria-label="Período" value={dias} onChange={(e) => cambiar('dias', Number(e.target.value))}>
-            {PERIODOS.map((p) => <option key={p} value={p}>Últimos {p} días</option>)}
+            {PERIODOS.map((p) => <option key={p} value={p}>Últimos {p} días{!pro && !GRATIS.dias.includes(p) ? ' (Pro)' : ''}</option>)}
           </select>
         </div>
       </div>
 
-      {estado.error && <p className="error" role="alert">{estado.error}</p>}
-      {estado.cargando && !datos && <p className="nota">Calculando…</p>}
+      {bloqueado && (
+        <CandadoPro
+          titulo={`Estadísticas de ${nombreQuiniela(quiniela)}, últimos ${dias} días`}
+          texto="Con Pro ves los salidores y atrasados de las 7 quinielas, de los últimos 30, 60 y 90 días. Gratis tenés Ciudad y Provincia de los últimos 30 días."
+        />
+      )}
+      {!bloqueado && estado.error && <p className="error" role="alert">{estado.error}</p>}
+      {!bloqueado && estado.cargando && !datos && <p className="nota">Calculando…</p>}
 
-      {datos && (
+      {!bloqueado && datos && (
         <div className={estado.cargando ? 'cargando' : undefined}>
           <p className="nota">
             {nombreQuiniela(quiniela)}: {datos.sorteos} sorteos analizados
