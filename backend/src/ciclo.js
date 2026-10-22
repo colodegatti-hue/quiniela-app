@@ -237,6 +237,7 @@ export function crearCiclo(opciones = {}) {
       for (const t of sorteados) {
         if (minutosDesde(t) > VENTANA_MIN || !estado.vistas[t]?.length) continue; // turno sin nada: lo maneja el paso 2
         const faltan = horarios.QUINIELAS.filter((q) => !estado.vistas[t].includes(q.id));
+        const juntas = []; // lo que se agregó en esta llamada: se avisa todo junto
         for (const q of faltan) {
           try {
             paginas[q.slug] ??= await fuentes.buscarPaginaQuinieleando(q.slug);
@@ -246,13 +247,15 @@ export function crearCiclo(opciones = {}) {
             const res = await base.agregarExtracto(ar.fecha, t, extracto, 'quinieleando');
             if (res === 'omitido') { estado.vistas[t] = [...new Set([...estado.vistas[t], q.id])]; continue; }
             resumen.guardados.push({ fecha: ar.fecha, turno: t, fuente: 'quinieleando', resultado: res, quiniela: q.id });
-            const sorteo = { fecha: ar.fecha, turno: t, numero: null, fuente: 'quinieleando', extractos: [extracto] };
-            alGuardar(sorteo, res);
-            sumarAlDia(sorteo, [q.id]);
+            juntas.push(extracto);
+            alGuardar({ fecha: ar.fecha, turno: t, numero: null, fuente: 'quinieleando', extractos: [extracto] }, res);
           } catch (e) {
             paginas[q.slug] = [];
             resumen.errores.push(`quinieleando (${q.id}): ${e.message}`);
           }
+        }
+        if (juntas.length) {
+          sumarAlDia({ fecha: ar.fecha, turno: t, numero: null, fuente: 'quinieleando', extractos: juntas }, juntas.map((e) => e.quiniela));
         }
       }
     }
