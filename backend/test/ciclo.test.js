@@ -357,3 +357,34 @@ test('Provincia desde su lotería oficial: llega antes, avisa y después se suma
   assert.equal(r.guardados[0].resultado, 'actualizado');
   assert.deepEqual(listos.slice(1), ['matutina:provincia+ciudad:ciudad']); // el aviso lleva las dos
 });
+
+test('Turno incompleto en la Lotería: completa las quinielas que faltan con el respaldo, sin pisar', async () => {
+  const base = baseEnMemoria();
+  base.sorteos.set('2026-10-19|previa', { numero: 53052, fuente: 'lotba', extractos: [] });
+  const agregados = [];
+  base.agregarExtracto = async (fecha, turno, e, fuente) => { agregados.push(`${turno}:${e.quiniela}:${fuente}`); return 'agregado'; };
+  const lot = lotbaDeAPoco(53053, '2026-10-19', 'primera');
+  const f = lot.fuentes();
+  let conRespaldo = new Set();
+  f.buscarPaginaQuinieleando = async (slug) => (conRespaldo.has(slug) ? [{ fecha: '2026-10-19', turno: 'primera', numeros: CIUDAD }] : []);
+  const listos = [];
+  const ciclo = crearCiclo({ base, fuentes: f, alListo: (s, x) => listos.push(`${s.extractos.map((e) => e.quiniela).join('+')}:${x.nuevas.join(',')}`) });
+
+  lot.publicar(1); // la Lotería solo tiene Ciudad
+  await ciclo.tick(a12(3));
+  assert.deepEqual(agregados, []);
+  assert.deepEqual(listos, ['ciudad:ciudad']);
+
+  conRespaldo = new Set(['buenosaires', 'cordoba']); // quinieleando ya tiene Provincia y Córdoba
+  const r = await ciclo.tick(a12(5));
+  assert.deepEqual(agregados, ['primera:provincia:quinieleando', 'primera:cordoba:quinieleando']);
+  assert.deepEqual(listos.slice(1), ['ciudad+provincia:provincia', 'ciudad+provincia+cordoba:cordoba']);
+  assert.equal(r.guardados.length, 2);
+
+  await ciclo.tick(a12(7)); // ya las tiene: no las vuelve a agregar
+  assert.equal(agregados.length, 2);
+
+  lot.publicar(6); // llega todo lo oficial: reemplaza y avisa solo lo nuevo
+  await ciclo.tick(a12(9));
+  assert.deepEqual(listos.slice(3), ['ciudad+provincia+cordoba+santafe+entrerios+mendoza:santafe,entrerios,mendoza']);
+});
