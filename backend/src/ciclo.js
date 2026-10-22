@@ -235,8 +235,9 @@ export function crearCiclo(opciones = {}) {
     if (base.agregarExtracto && fuentes.buscarPaginaQuinieleando) {
       const paginas = {}; // slug -> turnos de esa quiniela (una vez por llamada)
       for (const t of sorteados) {
-        if (minutosDesde(t) > VENTANA_MIN || !estado.vistas[t]?.length) continue; // turno sin nada: lo maneja el paso 2
-        const faltan = horarios.QUINIELAS.filter((q) => !estado.vistas[t].includes(q.id));
+        if (minutosDesde(t) > VENTANA_MIN) continue;
+        // Aunque la Lotería de la Ciudad todavía no haya publicado nada, cada quiniela entra apenas aparece
+        const faltan = horarios.QUINIELAS.filter((q) => !(estado.vistas[t] ?? []).includes(q.id));
         const juntas = []; // lo que se agregó en esta llamada: se avisa todo junto
         for (const q of faltan) {
           try {
@@ -245,7 +246,8 @@ export function crearCiclo(opciones = {}) {
             if (!x) continue;
             const extracto = { quiniela: q.id, numeros: x.numeros, letras: null };
             const res = await base.agregarExtracto(ar.fecha, t, extracto, 'quinieleando');
-            if (res === 'omitido') { estado.vistas[t] = [...new Set([...estado.vistas[t], q.id])]; continue; }
+            if (res === 'omitido') { estado.vistas[t] = [...new Set([...(estado.vistas[t] ?? []), q.id])]; continue; }
+            estado.sorteosHoy[t] ??= 'quinieleando';
             resumen.guardados.push({ fecha: ar.fecha, turno: t, fuente: 'quinieleando', resultado: res, quiniela: q.id });
             juntas.push(extracto);
             alGuardar({ fecha: ar.fecha, turno: t, numero: null, fuente: 'quinieleando', extractos: [extracto] }, res);

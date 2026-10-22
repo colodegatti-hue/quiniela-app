@@ -388,3 +388,22 @@ test('Turno incompleto en la Lotería: completa las quinielas que faltan con el 
   await ciclo.tick(a12(9));
   assert.deepEqual(listos.slice(2), ['ciudad+provincia+cordoba+santafe+entrerios+mendoza:santafe,entrerios,mendoza']);
 });
+
+test('Si la Lotería de la Ciudad no publicó nada, igual toma las otras quinielas apenas aparecen', async () => {
+  const base = baseEnMemoria();
+  base.sorteos.set('2026-10-19|previa', { numero: 53052, fuente: 'lotba', extractos: [] });
+  const agregados = [];
+  base.agregarExtracto = async (fecha, turno, e) => { agregados.push(`${turno}:${e.quiniela}`); return agregados.length === 1 ? 'nuevo' : 'agregado'; };
+  const lot = lotbaDeAPoco(53053, '2026-10-19', 'primera');
+  const f = lot.fuentes();
+  f.buscarPaginaQuinieleando = async (slug) => (['buenosaires', 'santafe'].includes(slug) ? [{ fecha: '2026-10-19', turno: 'primera', numeros: CIUDAD }] : []);
+  const listos = [];
+  const ciclo = crearCiclo({ base, fuentes: f, alListo: (s, x) => listos.push(x.nuevas.join(',')) });
+  const r = await ciclo.tick(a12(8)); // 12:08, la Ciudad todavía nada
+  assert.deepEqual(agregados, ['primera:provincia', 'primera:santafe']);
+  assert.deepEqual(listos, ['provincia,santafe']);
+  assert.equal(r.turnosHoy.primera, 'quinieleando');
+  lot.publicar(1); // llega Ciudad oficial
+  await ciclo.tick(a12(10));
+  assert.deepEqual(listos.slice(1), ['ciudad']);
+});
