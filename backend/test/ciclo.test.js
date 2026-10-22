@@ -378,7 +378,7 @@ test('Turno incompleto en la Lotería: completa las quinielas que faltan con el 
   conRespaldo = new Set(['buenosaires', 'cordoba']); // quinieleando ya tiene Provincia y Córdoba
   const r = await ciclo.tick(a12(5));
   assert.deepEqual(agregados, ['primera:provincia:quinieleando', 'primera:cordoba:quinieleando']);
-  assert.deepEqual(listos.slice(1), ['ciudad+provincia:provincia', 'ciudad+provincia+cordoba:cordoba']);
+  assert.deepEqual(listos.slice(1), ['ciudad+provincia+cordoba:provincia,cordoba']); // un solo aviso con las dos
   assert.equal(r.guardados.length, 2);
 
   await ciclo.tick(a12(7)); // ya las tiene: no las vuelve a agregar
@@ -386,5 +386,5 @@ test('Turno incompleto en la Lotería: completa las quinielas que faltan con el 
 
   lot.publicar(6); // llega todo lo oficial: reemplaza y avisa solo lo nuevo
   await ciclo.tick(a12(9));
-  assert.deepEqual(listos.slice(3), ['ciudad+provincia+cordoba+santafe+entrerios+mendoza:santafe,entrerios,mendoza']);
+  assert.deepEqual(listos.slice(2), ['ciudad+provincia+cordoba+santafe+entrerios+mendoza:santafe,entrerios,mendoza']);
 });
