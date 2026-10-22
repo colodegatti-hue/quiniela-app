@@ -229,6 +229,34 @@ export function crearCiclo(opciones = {}) {
       }
     }
 
+    // ---- 3c. Quinielas que todavía faltan en un turno de hoy: completarlas con el respaldo
+    // (quinieleando suele tener las provincias antes que la Lotería de la Ciudad).
+    // Nunca pisa lo que ya hay; cuando llega el dato oficial, lo reemplaza.
+    if (base.agregarExtracto && fuentes.buscarPaginaQuinieleando) {
+      const paginas = {}; // slug -> turnos de esa quiniela (una vez por llamada)
+      for (const t of sorteados) {
+        if (minutosDesde(t) > VENTANA_MIN || !estado.vistas[t]?.length) continue; // turno sin nada: lo maneja el paso 2
+        const faltan = horarios.QUINIELAS.filter((q) => !estado.vistas[t].includes(q.id));
+        for (const q of faltan) {
+          try {
+            paginas[q.slug] ??= await fuentes.buscarPaginaQuinieleando(q.slug);
+            const x = paginas[q.slug].find((p) => p.fecha === ar.fecha && p.turno === t);
+            if (!x) continue;
+            const extracto = { quiniela: q.id, numeros: x.numeros, letras: null };
+            const res = await base.agregarExtracto(ar.fecha, t, extracto, 'quinieleando');
+            if (res === 'omitido') { estado.vistas[t] = [...new Set([...estado.vistas[t], q.id])]; continue; }
+            resumen.guardados.push({ fecha: ar.fecha, turno: t, fuente: 'quinieleando', resultado: res, quiniela: q.id });
+            const sorteo = { fecha: ar.fecha, turno: t, numero: null, fuente: 'quinieleando', extractos: [extracto] };
+            alGuardar(sorteo, res);
+            sumarAlDia(sorteo, [q.id]);
+          } catch (e) {
+            paginas[q.slug] = [];
+            resumen.errores.push(`quinieleando (${q.id}): ${e.message}`);
+          }
+        }
+      }
+    }
+
     // ---- 4. Historial: completa de a poco los sorteos viejos que faltan
     if (estado.faltantes.length && !lotbaFallo) {
       let cargados = 0;
