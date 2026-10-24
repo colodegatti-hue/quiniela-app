@@ -407,3 +407,19 @@ test('Si la Lotería de la Ciudad no publicó nada, igual toma las otras quiniel
   await ciclo.tick(a12(10));
   assert.deepEqual(listos.slice(1), ['ciudad']);
 });
+
+test('vivitusuerte primero (si tiene el dato), después quinieleando', async () => {
+  const base = baseEnMemoria();
+  base.sorteos.set('2026-10-19|previa', { numero: 53052, fuente: 'lotba', extractos: [] });
+  const agregados = [];
+  base.agregarExtracto = async (fecha, turno, e) => { agregados.push(e.quiniela); return 'agregado'; };
+  const lot = lotbaDeAPoco(53053, '2026-10-19', 'primera');
+  const f = lot.fuentes();
+  const pedidosQuinieleando = [];
+  f.buscarVivi = async (q, fecha) => (['provincia', 'santafe'].includes(q) ? [{ fecha, turno: 'primera', numeros: CIUDAD }] : []);
+  f.buscarPaginaQuinieleando = async (slug) => { pedidosQuinieleando.push(slug); return slug === 'cordoba' ? [{ fecha: '2026-10-19', turno: 'primera', numeros: CIUDAD }] : []; };
+  const ciclo = crearCiclo({ base, fuentes: f });
+  const r = await ciclo.tick(a12(6));
+  assert.deepEqual(agregados, ['provincia', 'santafe', 'cordoba']);
+  assert.deepEqual(r.respaldo, { provincia: 'vivitusuerte', santafe: 'vivitusuerte', cordoba: 'quinieleando' });
+});
