@@ -617,3 +617,9 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 .td-celda.marcado .td-num { color: var(--marcador-tinta); }
 .cabeza-caja { text-align: right; }
 .cabeza-sueno { margin: 0.1rem 0 0.5rem; color: var(--tenue); font-size: 0.85rem; }
+
+/* ---- Legales ---- */
+.indice-legal { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin: 0.6rem 0 0.4rem; }
+.indice-legal a, .nota a { color: var(--verde); font-weight: 600; }
+.seleccionable { user-select: all; }
+.texto h3[id] { scroll-margin-top: 1rem; }
