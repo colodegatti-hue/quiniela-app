@@ -6,6 +6,7 @@ import Buscar from './pantallas/Buscar.jsx';
 import Estadisticas from './pantallas/Estadisticas.jsx';
 import Suenos from './pantallas/Suenos.jsx';
 import Pro from './pantallas/Pro.jsx';
+import Legal from './pantallas/Legal.jsx';
 import { usePro, tomarRetorno, revisarPro } from './util/pro.js';
 
 const PANTALLAS = {
@@ -16,6 +17,7 @@ const PANTALLAS = {
   buscar: { titulo: 'Buscar', componente: Buscar },
   'como-se-juega': { titulo: 'Cómo jugar', componente: ComoSeJuega },
   pro: { componente: Pro }, // se entra desde el botón de arriba
+  legal: { componente: Legal, seccion: 'como-se-juega' }, // privacidad y términos
 };
 
 tomarRetorno(); // si vuelve de pagar en Mercado Pago, ir a la pantalla Pro
