@@ -20,6 +20,7 @@ import * as baseReal from './db.js';
 import { buscarSorteoLotba } from './fuentes/lotba.js';
 import { buscarSorteoQuinieleando, buscarPaginaQuinieleando } from './fuentes/quinieleando.js';
 import { buscarProvincia } from './fuentes/provincia.js';
+import { buscarVivi } from './fuentes/vivitusuerte.js';
 
 const MAX_POR_CICLO = 12;      // sorteos oficiales a recuperar por llamada
 const RESPALDO_MIN = 15;       // minutos de espera antes de usar el respaldo
@@ -42,6 +43,7 @@ export function crearCiclo(opciones = {}) {
     buscarSorteoQuinieleando,
     buscarPaginaQuinieleando,
     buscarProvincia,
+    buscarVivi,
   };
   const sorteoInicial = opciones.sorteoInicial ?? Number(process.env.SORTEO_INICIAL || 0);
   const alGuardar = opciones.alGuardar ?? (() => {});
@@ -229,23 +231,40 @@ export function crearCiclo(opciones = {}) {
       }
     }
 
-    // ---- 3c. Quinielas que todavía faltan en un turno de hoy: completarlas con el respaldo
-    // (quinieleando suele tener las provincias antes que la Lotería de la Ciudad).
+    // ---- 3c. Quinielas que todavía faltan en un turno de hoy: completarlas con los respaldos
+    // (vivitusuerte y quinieleando suelen tener las provincias antes que la Lotería de la Ciudad).
     // Nunca pisa lo que ya hay; cuando llega el dato oficial, lo reemplaza.
-    if (base.agregarExtracto && fuentes.buscarPaginaQuinieleando) {
-      const paginas = {}; // slug -> turnos de esa quiniela (una vez por llamada)
+    if (base.agregarExtracto && (fuentes.buscarPaginaQuinieleando || fuentes.buscarVivi)) {
+      const paginas = {}; // slug -> turnos de esa quiniela en quinieleando (una vez por llamada)
+      const vivi = {};    // quiniela -> turnos en vivitusuerte (una vez por llamada)
       for (const t of sorteados) {
         if (minutosDesde(t) > VENTANA_MIN) continue;
         // Aunque la Lotería de la Ciudad todavía no haya publicado nada, cada quiniela entra apenas aparece
-        const faltan = horarios.QUINIELAS.filter((q) => !(estado.vistas[t] ?? []).includes(q.id));
+        const faltan = [...horarios.QUINIELAS, { id: 'montevideo', slug: null }]
+          .filter((q) => esperadas(t, 'lotba').includes(q.id) && !(estado.vistas[t] ?? []).includes(q.id));
         const juntas = []; // lo que se agregó en esta llamada: se avisa todo junto
         for (const q of faltan) {
           try {
-            paginas[q.slug] ??= await fuentes.buscarPaginaQuinieleando(q.slug);
-            const x = paginas[q.slug].find((p) => p.fecha === ar.fecha && p.turno === t);
+            let x = null;
+            let fuente = 'quinieleando';
+            if (fuentes.buscarVivi) {
+              try {
+                vivi[q.id] ??= await fuentes.buscarVivi(q.id, ar.fecha);
+              } catch (e) {
+                vivi[q.id] = [];
+                resumen.errores.push(`vivitusuerte (${q.id}): ${e.message}`);
+              }
+              x = vivi[q.id].find((p) => p.fecha === ar.fecha && p.turno === t) ?? null;
+              if (x) fuente = 'vivitusuerte';
+            }
+            if (!x && q.slug && fuentes.buscarPaginaQuinieleando) {
+              paginas[q.slug] ??= await fuentes.buscarPaginaQuinieleando(q.slug);
+              x = paginas[q.slug].find((p) => p.fecha === ar.fecha && p.turno === t) ?? null;
+            }
             if (!x) continue;
             const extracto = { quiniela: q.id, numeros: x.numeros, letras: null };
             const res = await base.agregarExtracto(ar.fecha, t, extracto, 'quinieleando');
+            resumen.respaldo = { ...(resumen.respaldo ?? {}), [q.id]: fuente };
             if (res === 'omitido') { estado.vistas[t] = [...new Set([...(estado.vistas[t] ?? []), q.id])]; continue; }
             estado.sorteosHoy[t] ??= 'quinieleando';
             resumen.guardados.push({ fecha: ar.fecha, turno: t, fuente: 'quinieleando', resultado: res, quiniela: q.id });
