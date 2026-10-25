@@ -93,7 +93,7 @@ function exigirClave(req, res, next) {
   next();
 }
 
-app.get('/', (req, res) => res.type('text').send('Quiniela Colo Apps - servidor OK'));
+app.get('/', (req, res) => res.type('text').send('Quiniela al Toque (Colo Apps) - servidor OK'));
 
 app.get('/salud', (req, res) => {
   res.json({ ok: true, horaArgentina: horaArgentina(), version: '1.0.0' });

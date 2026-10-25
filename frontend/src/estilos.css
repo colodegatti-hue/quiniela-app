@@ -623,3 +623,6 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 .indice-legal a, .nota a { color: var(--verde); font-weight: 600; }
 .seleccionable { user-select: all; }
 .texto h3[id] { scroll-margin-top: 1rem; }
+
+.marca-toque { color: var(--marcador); }
+@media (prefers-color-scheme: dark) { .marca-toque { color: #ffe27a; } }
