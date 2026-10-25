@@ -26,7 +26,7 @@ export function textoExtracto({ quiniela, turno, fecha, numeros }) {
     '',
     ...filas,
     '',
-    `Resultados al instante: ${enlaceApp()}`,
+    `Quiniela al Toque, resultados al instante: ${enlaceApp()}`,
   ].join('\n');
 }
 

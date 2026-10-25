@@ -13,7 +13,7 @@ test('Texto para compartir un extracto', () => {
   assert.equal(lineas[1], 'Cabeza: 9179');
   assert.equal(lineas[3], ' 1. 9179    11. 9625');
   assert.equal(lineas[12], '10. 9120    20. 1033');
-  assert.match(t, /Resultados al instante: https:\/\//);
+  assert.match(t, /Quiniela al Toque, resultados al instante: https:\/\//);
 });
 
 test('Texto para compartir las cabezas de un turno', () => {

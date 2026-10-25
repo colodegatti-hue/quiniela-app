@@ -18,7 +18,7 @@ self.addEventListener('push', (evento) => {
   } catch {
     datos = { cuerpo: evento.data ? evento.data.text() : '' };
   }
-  const titulo = datos.titulo || 'Quiniela';
+  const titulo = datos.titulo || 'Quiniela al Toque';
   evento.waitUntil(
     self.registration.showNotification(titulo, {
       body: datos.cuerpo || 'Ya salieron nuevos resultados.',

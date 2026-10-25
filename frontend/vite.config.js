@@ -13,9 +13,9 @@ export default defineConfig({
       injectRegister: 'auto',
       includeAssets: ['favicon.svg', 'iconos/apple-touch-icon.png'],
       manifest: {
-        name: 'Quiniela Argentina: resultados y control',
-        short_name: 'Quiniela',
-        description: 'Resultados de la Quiniela al instante y control automático de tus jugadas.',
+        name: 'Quiniela al Toque: Resultados',
+        short_name: 'Quiniela al Toque',
+        description: 'Resultados de quiniela de Argentina al instante. Controlá tus jugadas y números.',
         lang: 'es-AR',
         dir: 'ltr',
         start_url: '/',

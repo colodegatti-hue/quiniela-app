@@ -47,8 +47,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="barra">
-        <p className="marca">Quiniela</p>
-        <p className="marca-sub">Colo Apps</p>
+        <p className="marca">Quiniela <span className="marca-toque">al Toque</span></p>
         <a className={`boton-pro${pro ? ' es-pro' : ''}`} href="#/pro">{pro ? 'PRO' : 'Hacete Pro'}</a>
       </header>
       <main>

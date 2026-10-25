@@ -17,7 +17,7 @@ export default function Legal() {
 
       <h3 id="privacidad">Política de privacidad</h3>
       <p>
-        Quiniela (Colo Apps) es una app informativa. No pedimos tu nombre, tu mail ni que crees una cuenta.
+        Quiniela al Toque (de Colo Apps) es una app informativa. No pedimos tu nombre, tu mail ni que crees una cuenta.
         Esto es todo lo que se guarda y para qué:
       </p>
       <ul className="pasos">
