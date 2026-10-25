@@ -2,7 +2,7 @@
 // Escrito para lo que la app hace HOY: si se suman publicidad o cuentas, actualizar.
 const ACTUALIZADO = '24 de octubre de 2026';
 // Mail de contacto del responsable (vacío = todavía no definido)
-export const CONTACTO = '';
+export const CONTACTO = 'coloapps.soporte@gmail.com';
 
 export default function Legal() {
   return (
