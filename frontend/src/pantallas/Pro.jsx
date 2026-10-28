@@ -168,7 +168,7 @@ export default function Pro() {
         </p>
       )}
 
-      <p className="nota">La app es informativa y no es oficial. Los premios se cobran en las agencias oficiales. Jugá con responsabilidad. Solo para mayores de 18 años. <a href="#/legal">Términos y privacidad</a>.</p>
+      <p className="nota">La app es informativa y no es oficial. Los premios se cobran en las agencias oficiales. Jugá con responsabilidad. Solo para mayores de 18 años. <a href="#/legal">Términos y privacidad</a> · <a href="#/arrepentimiento">Botón de arrepentimiento</a>.</p>
     </section>
   );
 }

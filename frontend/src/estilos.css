@@ -626,3 +626,5 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 
 .marca-toque { color: var(--marcador); }
 @media (prefers-color-scheme: dark) { .marca-toque { color: #ffe27a; } }
+
+.campo textarea { width: 100%; border: 1px solid var(--linea); border-radius: 10px; background: var(--fondo); padding: 0.6rem 0.75rem; font: inherit; color: inherit; resize: vertical; }
