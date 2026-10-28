@@ -7,7 +7,6 @@ on:
   schedule:
     - cron: '*/5 13-23 * * 1-6'   # 10:00 a 20:55 (lun a sáb)
     - cron: '*/5 0-1 * * 2-6,0'   # 21:00 a 22:55 (lun a sáb)
-    - cron: '*/10 11-12 * * 1-6'  # 8:00 a 9:50: despertar el servidor antes de la Previa (respaldo de cron-job.org)
   workflow_dispatch:
 
 jobs:
