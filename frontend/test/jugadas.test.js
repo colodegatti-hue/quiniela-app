@@ -70,3 +70,13 @@ test('Fechas en hora argentina', () => {
   assert.equal(sumarDias('2026-10-31', 1), '2026-11-01');
   assert.equal(fechaLarga('2026-10-08'), 'jueves, 8 de octubre');
 });
+
+test('Con solo la cabeza: a la cabeza ya se sabe, a los 20 queda esperando', () => {
+  const parcial = { fecha: '2026-10-08', turnos: [{ turno: 'matutina', quinielas: { entrerios: { numeros: ['7071', ...Array(19).fill('')], parcial: true } } }] };
+  const cab = nuevaJugada({ numero: '71', ubicacion: 'cabeza', quinielas: ['entrerios'], turnos: ['matutina'], fecha: '2026-10-08', monto: '' });
+  assert.equal(controlarJugada(cab, parcial, A_LAS_1730)[0].estado, 'gano');
+  const no = nuevaJugada({ numero: '12', ubicacion: 'cabeza', quinielas: ['entrerios'], turnos: ['matutina'], fecha: '2026-10-08', monto: '' });
+  assert.equal(controlarJugada(no, parcial, A_LAS_1730)[0].estado, 'no');
+  const a20 = nuevaJugada({ numero: '12', ubicacion: 'a_los_20', quinielas: ['entrerios'], turnos: ['matutina'], fecha: '2026-10-08', monto: '' });
+  assert.equal(controlarJugada(a20, parcial, A_LAS_1730)[0].estado, 'demora');
+});

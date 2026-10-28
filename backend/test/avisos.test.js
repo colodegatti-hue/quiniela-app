@@ -178,3 +178,15 @@ test('Avisa apenas sale una quiniela que le importa y después actualiza sin vol
   await avisos.avisarSorteo(SORTEO, { nuevas: ['cordoba', 'entrerios', 'mendoza', 'montevideo'] });
   assert.deepEqual(enviados, ['todas|Cabezas de la Matutina|true']); // a los demás no les cambió nada
 });
+
+test('Extracto parcial (solo la cabeza): jugadas a los 20 no se cuentan todavía y no rompe', () => {
+  const parcial = { ...SORTEO, extractos: [{ quiniela: 'entrerios', numeros: ['7071', ...Array(19).fill('')], letras: null, parcial: true }] };
+  const jugadas = [
+    { fecha: '2026-10-08', turnos: ['matutina'], quinielas: ['entrerios'], numero: '55', ubicacion: 'a_los_20', monto: 100 },
+  ];
+  const a = armarAviso({ preferencias: {}, jugadas }, parcial);
+  assert.equal(a.titulo, 'Cabezas de la Matutina');
+  assert.equal(a.cuerpo, 'Entre Ríos 7071 💩');
+  const gana = armarAviso({ preferencias: {}, jugadas: [{ ...jugadas[0], numero: '71', ubicacion: 'cabeza' }] }, parcial);
+  assert.match(gana.titulo, /Salió tu 71/);
+});

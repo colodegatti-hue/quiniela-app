@@ -88,3 +88,14 @@ create table if not exists arrepentimientos (
   estado text not null default 'pendiente' check (estado in ('pendiente','resuelto')),
   creado timestamptz not null default now()
 );
+
+-- Cabezas que se conocen antes que el extracto completo (para avisar y mostrar antes)
+create table if not exists cabezas (
+  fecha date not null,
+  turno text not null,
+  quiniela text not null,
+  cabeza text not null check (cabeza ~ '^[0-9]{4}$'),
+  fuente text not null,
+  visto_en timestamptz not null default now(),
+  primary key (fecha, turno, quiniela)
+);

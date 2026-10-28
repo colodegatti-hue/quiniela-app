@@ -52,3 +52,38 @@ export async function buscarVivi(quiniela, fecha, { timeoutMs = 10000 } = {}) {
   if (!r.ok) throw new Error(`vivitusuerte respondió ${r.status}`);
   return interpretarVivi(await r.json()).map((x) => ({ fecha, ...x }));
 }
+
+// Cabezas del día de todas las quinielas (aparecen antes que los 20 números)
+const IDS_VIVI = { 1: 'ciudad', 2: 'provincia', 3: 'santafe', 7: 'cordoba', 5: 'entrerios', 6: 'mendoza', 4: 'montevideo' };
+
+// Devuelve [{ turno, quiniela, cabeza }] solo con cabezas de 4 cifras
+export function interpretarCabezasVivi(json) {
+  const datos = json?.datos ?? json?.data ?? json;
+  if (!datos || typeof datos !== 'object') return [];
+  const r = [];
+  // Puede venir como { id: fila } o como [fila con id]
+  const filas = Array.isArray(datos) ? datos.map((f) => [f?.id ?? f?.juego_id ?? f?.quiniela_id, f]) : Object.entries(datos);
+  for (const [id, fila] of filas) {
+    const quiniela = IDS_VIVI[id];
+    if (!quiniela || !fila) continue;
+    for (const [m, turno] of Object.entries(MOMENTOS)) {
+      const v = String(fila[`momento_${m}`] ?? '');
+      if (/^\d{4}$/.test(v)) r.push({ turno, quiniela, cabeza: v });
+    }
+  }
+  return r;
+}
+
+export async function buscarCabezasVivi(fecha, { timeoutMs = 10000 } = {}) {
+  let r;
+  try {
+    r = await fetch(`https://vivitusuerte.com/api/juegos/cabezasDiarias?fecha=${fecha}&_=${Date.now()}`, {
+      headers: { 'User-Agent': NAVEGADOR, Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', Referer: 'https://vivitusuerte.com/cabezas' },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (e) {
+    throw new Error(`No se pudo conectar con vivitusuerte (${e.name === 'TimeoutError' ? 'tardó demasiado' : e.cause?.code || e.message})`);
+  }
+  if (!r.ok) throw new Error(`vivitusuerte respondió ${r.status}`);
+  return interpretarCabezasVivi(await r.json());
+}

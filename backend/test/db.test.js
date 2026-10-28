@@ -16,7 +16,7 @@ before(async () => {
   const esquema = await readFile(new URL('../sql/esquema.sql', import.meta.url), 'utf8');
   const c = new pg.Client({ connectionString: URL_PRUEBA });
   await c.connect();
-  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones, compras, licencias, arrepentimientos cascade');
+  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones, compras, licencias, arrepentimientos, cabezas cascade');
   await c.query(esquema);
   await c.query(esquema); // se puede correr dos veces
   await c.end();
@@ -224,4 +224,19 @@ test('Base real: pedidos de arrepentimiento', opciones, async () => {
   const l = await db.listarArrepentimientos();
   assert.equal(l[0].numero, 'ARR-1');
   assert.equal(l[0].estado, 'pendiente');
+});
+
+test('Base real: cabeza anticipada se ve como extracto parcial hasta que llegan los 20', opciones, async () => {
+  assert.equal(await db.guardarCabeza('2026-10-10', 'nocturna', 'entrerios', '4321', 'vivitusuerte'), true);
+  assert.equal(await db.guardarCabeza('2026-10-10', 'nocturna', 'entrerios', '4321', 'vivitusuerte'), false);
+  let r = await db.resultadosDeFecha('2026-10-10');
+  const q = r.turnos[0].quinielas.entrerios;
+  assert.equal(q.parcial, true);
+  assert.equal(q.numeros[0], '4321');
+  assert.equal(q.numeros.length, 20);
+  assert.equal(q.numeros[1], '');
+  await db.agregarExtracto('2026-10-10', 'nocturna', { quiniela: 'entrerios', numeros: MATUTINA_53009.entrerios, letras: null }, 'quinieleando');
+  r = await db.resultadosDeFecha('2026-10-10');
+  assert.equal(r.turnos[0].quinielas.entrerios.parcial, undefined);
+  assert.deepEqual(r.turnos[0].quinielas.entrerios.numeros, MATUTINA_53009.entrerios);
 });

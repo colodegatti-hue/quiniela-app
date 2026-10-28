@@ -8,7 +8,7 @@
 // Variables de entorno: VAPID_PUBLICA, VAPID_PRIVADA, VAPID_CONTACTO
 // =====================================================================
 import webpush from 'web-push';
-import { evaluarDirecta, UBICACIONES } from '../../shared/premios.js';
+import { evaluarConLoQueHay, UBICACIONES } from '../../shared/premios.js';
 import { suenoDe } from '../../shared/suenos.js';
 import { TURNOS, horaArgentina, minutosDelDia } from './horarios.js';
 import * as baseReal from './db.js';
@@ -53,8 +53,8 @@ export function armarAviso(sub, sorteo) {
     for (const q of j.quinielas || []) {
       const ex = sorteo.extractos.find((e) => e.quiniela === q);
       if (!ex || !/^\d{1,4}$/.test(String(j.numero))) continue;
-      const r = evaluarDirecta({ numero: String(j.numero), desde, hasta, monto: Number(j.monto) || 1 }, ex.numeros);
-      if (r.gano) aciertos.push({ numero: String(j.numero), quiniela: q, ubicaciones: r.aciertos, premio: Number(j.monto) ? r.premio : null });
+      const { estado, resultado: r } = evaluarConLoQueHay({ numero: String(j.numero), desde, hasta, monto: Number(j.monto) || 1 }, ex.numeros);
+      if (estado === 'gano') aciertos.push({ numero: String(j.numero), quiniela: q, ubicaciones: r.aciertos, premio: Number(j.monto) ? r.premio : null });
     }
   }
   if (aciertos.length) {

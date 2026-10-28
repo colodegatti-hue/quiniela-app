@@ -10,7 +10,7 @@ export default function Extracto({ nombre, numeros, resaltadas = new Set(), alCo
       return (
         <li key={pos} className={marcado ? 'marcado' : undefined}>
           <span className="pos">{pos}</span>
-          <span className="num">{n}</span>
+          <span className="num">{n || '----'}</span>
         </li>
       );
     });
@@ -31,6 +31,7 @@ export default function Extracto({ nombre, numeros, resaltadas = new Set(), alCo
           <p className="cabeza-sueno">{suenoDe(numeros[0])?.dibujo} {suenoDe(numeros[0])?.nombre}</p>
         </div>
       </header>
+      {numeros.slice(1).some((n) => !n) && <p className="nota extracto-parcial">Ya salió la cabeza. Los otros números se completan en unos minutos.</p>}
       <div className="extracto-tabla">
         <ol>{columna(0)}</ol>
         <ol>{columna(10)}</ol>

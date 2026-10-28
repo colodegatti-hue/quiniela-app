@@ -16,8 +16,8 @@ export function textoExtracto({ quiniela, turno, fecha, numeros }) {
   const nombre = QUINIELAS.find((q) => q.id === quiniela)?.completo ?? quiniela;
   const filas = [];
   for (let i = 0; i < 10; i++) {
-    const a = `${String(i + 1).padStart(2, ' ')}. ${numeros[i]}`;
-    const b = `${i + 11}. ${numeros[i + 10]}`;
+    const a = `${String(i + 1).padStart(2, ' ')}. ${numeros[i] || '----'}`;
+    const b = `${i + 11}. ${numeros[i + 10] || '----'}`;
     filas.push(`${a}    ${b}`);
   }
   return [

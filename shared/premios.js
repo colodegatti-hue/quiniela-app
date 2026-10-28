@@ -210,3 +210,30 @@ export function evaluarJugada(jugada, extracto, tabla = TABLA_POR_DEFECTO) {
   if (jugada.tipo === 'redoblona') return evaluarRedoblona(jugada, extracto, tabla);
   return evaluarDirecta(jugada, extracto, tabla);
 }
+
+// ---------------------------------------------------------------------
+// Extractos a medio publicar (por ejemplo, solo se conoce la cabeza).
+// Las ubicaciones que todavía no salieron vienen como '' (texto vacío).
+// ---------------------------------------------------------------------
+export const esParcial = (extracto) => Array.isArray(extracto) && extracto.some((n) => !/^\d{4}$/.test(String(n)));
+
+// ¿Ya se puede saber el resultado de una jugada directa con lo que se conoce?
+// Devuelve { estado: 'gano' | 'no' | 'pendiente', resultado } (resultado = evaluarDirecta).
+// Con un extracto parcial: si alguna ubicación conocida acierta, ya ganó (se cuentan solo esas);
+// si no acierta ninguna y faltan ubicaciones de su rango, queda pendiente.
+export function evaluarConLoQueHay(jugada, extracto, tabla = TABLA_POR_DEFECTO) {
+  if (!esParcial(extracto)) {
+    const r = evaluarDirecta(jugada, extracto, tabla);
+    return { estado: r.gano ? 'gano' : 'no', resultado: r };
+  }
+  const numero = String(jugada.numero);
+  // Relleno que nunca termina en el número jugado
+  const relleno = '0000'.endsWith(numero) ? '1111' : '0000';
+  const completo = extracto.map((n) => (/^\d{4}$/.test(String(n)) ? String(n) : relleno));
+  const r = evaluarDirecta(jugada, completo, tabla);
+  if (r.gano) return { estado: 'gano', resultado: r };
+  const desde = jugada.desde ?? 1;
+  const hasta = jugada.hasta ?? 1;
+  const faltan = extracto.slice(desde - 1, hasta).some((n) => !/^\d{4}$/.test(String(n)));
+  return { estado: faltan ? 'pendiente' : 'no', resultado: r };
+}
