@@ -16,7 +16,7 @@ before(async () => {
   const esquema = await readFile(new URL('../sql/esquema.sql', import.meta.url), 'utf8');
   const c = new pg.Client({ connectionString: URL_PRUEBA });
   await c.connect();
-  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones, compras, licencias cascade');
+  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones, compras, licencias, arrepentimientos cascade');
   await c.query(esquema);
   await c.query(esquema); // se puede correr dos veces
   await c.end();
@@ -217,4 +217,11 @@ test('Base real: suscripción con código Pro vigente', opciones, async () => {
   assert.equal(lista.find((x) => x.endpoint === 'https://push/gratis').pro, false);
   await db.actualizarSuscripcion('https://push/gratis', { codigo: '012345' });
   assert.equal((await db.buscarSuscripcion('https://push/gratis')).pro, true);
+});
+
+test('Base real: pedidos de arrepentimiento', opciones, async () => {
+  await db.crearArrepentimiento({ numero: 'ARR-1', codigo: '012345', contacto: 'a@b.com', detalle: 'no lo uso' });
+  const l = await db.listarArrepentimientos();
+  assert.equal(l[0].numero, 'ARR-1');
+  assert.equal(l[0].estado, 'pendiente');
 });

@@ -78,3 +78,13 @@ alter table sorteos drop constraint if exists sorteos_fuente_check;
 alter table sorteos add constraint sorteos_fuente_check check (fuente in ('lotba','quinieleando','provincia'));
 alter table publicaciones drop constraint if exists publicaciones_fuente_check;
 alter table publicaciones add constraint publicaciones_fuente_check check (fuente in ('lotba','quinieleando','provincia'));
+
+-- Pedidos de arrepentimiento de compras Pro (Ley 24.240, art. 34; botón de arrepentimiento)
+create table if not exists arrepentimientos (
+  numero text primary key,               -- número de trámite que se le muestra a la persona
+  codigo text,                           -- código Pro (si lo tiene)
+  contacto text not null,                -- mail o teléfono para responder
+  detalle text,
+  estado text not null default 'pendiente' check (estado in ('pendiente','resuelto')),
+  creado timestamptz not null default now()
+);

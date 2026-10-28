@@ -103,7 +103,7 @@ export default function ComoSeJuega() {
         siempre con el extracto oficial. Fuente de las reglas: reglamento y programación oficial de la Lotería de la
         Ciudad de Buenos Aires (octubre de 2026).
       </p>
-      <p className="nota"><a href="#/legal">Privacidad, términos de uso y juego responsable</a></p>
+      <p className="nota"><a href="#/legal">Privacidad, términos de uso y juego responsable</a> · <a href="#/arrepentimiento">Botón de arrepentimiento</a></p>
     </section>
   );
 }

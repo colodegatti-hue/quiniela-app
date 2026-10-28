@@ -412,3 +412,16 @@ export async function crearLicenciaCortesia(codigo, dias, nota = 'cortesía') {
     [codigo, dias, nota],
   );
 }
+
+// ---- Botón de arrepentimiento ---------------------------------------
+export async function crearArrepentimiento({ numero, codigo, contacto, detalle }) {
+  await db().query(
+    'insert into arrepentimientos (numero, codigo, contacto, detalle) values ($1, $2, $3, $4)',
+    [numero, codigo ?? null, contacto, detalle ?? null],
+  );
+}
+
+export async function listarArrepentimientos() {
+  const r = await db().query("select numero, codigo, contacto, detalle, estado, creado from arrepentimientos order by creado desc limit 100");
+  return r.rows;
+}

@@ -75,7 +75,7 @@ export default function Legal() {
           hasta 3 teléfonos. Si el pago se aprobó y no se activó tu código, o si tenés cualquier problema con la compra,
           {CONTACTO ? <> escribinos a <strong className="seleccionable">{CONTACTO}</strong> y</> : null} lo
           resolvemos. Podés arrepentirte de la compra dentro de los 10 días corridos, como indica la ley de defensa del
-          consumidor.
+          consumidor, desde el <a href="#/arrepentimiento">botón de arrepentimiento</a>.
         </li>
         <li>
           <strong>Uso.</strong> La app es solo para mayores de 18 años. No está permitido usarla para copiar sus datos

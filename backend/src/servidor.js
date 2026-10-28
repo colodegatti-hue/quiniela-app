@@ -10,7 +10,7 @@
 import express from 'express';
 import {
   conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero, guardarSorteo, estadisticas,
-  guardarSuscripcion, actualizarSuscripcion, borrarSuscripcion,
+  guardarSuscripcion, actualizarSuscripcion, borrarSuscripcion, crearArrepentimiento, listarArrepentimientos,
 } from './db.js';
 import { crearAvisos, pushConfigurado } from './avisos.js';
 import { crearPro, planes, codigoValido } from './pro.js';
@@ -347,6 +347,31 @@ app.post('/api/pro/verificar', async (req, res) => {
     console.error('[pro] verificar:', e.message);
     res.status(503).json({ error: 'No se pudo verificar el código' });
   }
+});
+
+// Botón de arrepentimiento: la persona pide cancelar su compra Pro (Ley 24.240, art. 34).
+// Se guarda el pedido y se le devuelve un número de trámite. La devolución se hace a mano en Mercado Pago.
+app.post('/api/pro/arrepentimiento', async (req, res) => {
+  if (demasiadosIntentos(req)) return res.status(429).json({ error: 'Demasiados intentos. Esperá unos minutos.' });
+  const { codigo, contacto, detalle } = req.body || {};
+  const c = String(contacto ?? '').trim();
+  if (c.length < 6 || c.length > 120 || !(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c) || /^[+\d][\d\s-]{5,}$/.test(c))) {
+    return res.status(400).json({ error: 'Poné un mail o un teléfono para que te podamos responder.' });
+  }
+  if (codigo && !codigoValido(codigo)) return res.status(400).json({ error: 'El código tiene 6 números.' });
+  const numero = `ARR-${Date.now().toString(36).toUpperCase()}`;
+  try {
+    await crearArrepentimiento({ numero, codigo: codigo || null, contacto: c, detalle: String(detalle ?? '').slice(0, 500) || null });
+    console.log(`[pro] arrepentimiento ${numero} (código ${codigo || '-'})`);
+    res.json({ numero });
+  } catch (e) {
+    console.error('[pro] arrepentimiento:', e.message);
+    res.status(503).json({ error: 'No se pudo registrar el pedido. Probá de nuevo o escribinos.' });
+  }
+});
+
+app.get('/api/pro/arrepentimientos', exigirClave, async (req, res) => {
+  try { res.json(await listarArrepentimientos()); } catch (e) { res.status(503).json({ error: e.message }); }
 });
 
 // Diagnóstico: crea un link de pago de prueba SIN guardar nada (para ver que Mercado Pago responde)
