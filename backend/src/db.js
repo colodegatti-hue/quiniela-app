@@ -158,7 +158,16 @@ export async function resultadosDeFecha(fecha) {
     turnos[x.turno] ??= { turno: x.turno, numero: x.numero, fuente: x.fuente, quinielas: {} };
     turnos[x.turno].quinielas[x.quiniela] = { numeros: x.numeros, letras: x.letras };
   }
-  return { fecha, turnos: Object.values(turnos) };
+  // Cabezas que ya se conocen pero todavía no tienen el extracto completo: van como extracto parcial
+  const c = await db().query('select turno, quiniela, cabeza, fuente from cabezas where fecha = $1', [fecha]);
+  for (const x of c.rows) {
+    turnos[x.turno] ??= { turno: x.turno, numero: null, fuente: x.fuente, quinielas: {} };
+    if (!turnos[x.turno].quinielas[x.quiniela]) {
+      turnos[x.turno].quinielas[x.quiniela] = { numeros: [x.cabeza, ...Array(19).fill('')], letras: null, parcial: true };
+    }
+  }
+  const orden = ['previa', 'primera', 'matutina', 'vespertina', 'nocturna'];
+  return { fecha, turnos: Object.values(turnos).sort((a, b) => orden.indexOf(a.turno) - orden.indexOf(b.turno)) };
 }
 
 // Demoras medidas (para ajustar el scraper)
@@ -424,4 +433,14 @@ export async function crearArrepentimiento({ numero, codigo, contacto, detalle }
 export async function listarArrepentimientos() {
   const r = await db().query("select numero, codigo, contacto, detalle, estado, creado from arrepentimientos order by creado desc limit 100");
   return r.rows;
+}
+
+// ---- Cabezas anticipadas --------------------------------------------
+// Devuelve true si es nueva
+export async function guardarCabeza(fecha, turno, quiniela, cabeza, fuente) {
+  const r = await db().query(
+    'insert into cabezas (fecha, turno, quiniela, cabeza, fuente) values ($1, $2, $3, $4, $5) on conflict do nothing',
+    [fecha, turno, quiniela, cabeza, fuente],
+  );
+  return r.rowCount > 0;
 }

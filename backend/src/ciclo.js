@@ -20,7 +20,7 @@ import * as baseReal from './db.js';
 import { buscarSorteoLotba } from './fuentes/lotba.js';
 import { buscarSorteoQuinieleando, buscarPaginaQuinieleando } from './fuentes/quinieleando.js';
 import { buscarProvincia } from './fuentes/provincia.js';
-import { buscarVivi } from './fuentes/vivitusuerte.js';
+import { buscarVivi, buscarCabezasVivi } from './fuentes/vivitusuerte.js';
 
 const MAX_POR_CICLO = 12;      // sorteos oficiales a recuperar por llamada
 const RESPALDO_MIN = 15;       // minutos de espera antes de usar el respaldo
@@ -44,6 +44,7 @@ export function crearCiclo(opciones = {}) {
     buscarPaginaQuinieleando,
     buscarProvincia,
     buscarVivi,
+    buscarCabezasVivi,
   };
   const sorteoInicial = opciones.sorteoInicial ?? Number(process.env.SORTEO_INICIAL || 0);
   const alGuardar = opciones.alGuardar ?? (() => {});
@@ -64,10 +65,12 @@ export function crearCiclo(opciones = {}) {
       incompletos: new Map(), // turno -> { numero, quinielas: [...] }
       vistas: {},             // turno -> quinielas ya guardadas hoy (para saber cuáles son nuevas)
       extractosHoy: {},       // turno -> { quiniela: extracto } (para armar los avisos con todo lo que hay)
+      cabezasHoy: {},         // turno -> [quinielas de las que ya se avisó la cabeza sola]
     };
     if (base.resultadosDeFecha) {
       for (const t of (await base.resultadosDeFecha(fecha)).turnos ?? []) {
         estado.extractosHoy[t.turno] = Object.fromEntries(Object.entries(t.quinielas).map(([q, e]) => [q, { quiniela: q, ...e }]));
+        estado.cabezasHoy[t.turno] = Object.entries(t.quinielas).filter(([, e]) => e.parcial).map(([q]) => q);
       }
     }
     if (base.quinielasDeFecha) {
@@ -277,6 +280,36 @@ export function crearCiclo(opciones = {}) {
         }
         if (juntas.length) {
           sumarAlDia({ fecha: ar.fecha, turno: t, numero: null, fuente: 'quinieleando', extractos: juntas }, juntas.map((e) => e.quiniela));
+        }
+      }
+    }
+
+    // ---- 3d. Cabezas sueltas: si de una quiniela todavía no están los 20 números pero ya se
+    // conoce la cabeza, se guarda y se avisa ya (el extracto completo la reemplaza después).
+    if (fuentes.buscarCabezasVivi && base.guardarCabeza) {
+      const conFaltantes = sorteados.filter((t) => minutosDesde(t) <= VENTANA_MIN && esperadas(t, 'lotba')
+        .some((q) => !(estado.vistas[t] ?? []).includes(q) && !(estado.cabezasHoy[t] ?? []).includes(q)));
+      if (conFaltantes.length) {
+        try {
+          const cabezas = await fuentes.buscarCabezasVivi(ar.fecha);
+          for (const t of conFaltantes) {
+            const nuevas = [];
+            for (const c of cabezas.filter((x) => x.turno === t)) {
+              if (!esperadas(t, 'lotba').includes(c.quiniela) || (estado.vistas[t] ?? []).includes(c.quiniela) || (estado.cabezasHoy[t] ?? []).includes(c.quiniela)) continue;
+              await base.guardarCabeza(ar.fecha, t, c.quiniela, c.cabeza, 'vivitusuerte');
+              estado.cabezasHoy[t] = [...(estado.cabezasHoy[t] ?? []), c.quiniela];
+              estado.extractosHoy[t] = { ...(estado.extractosHoy[t] ?? {}), [c.quiniela]: { quiniela: c.quiniela, numeros: [c.cabeza, ...Array(19).fill('')], letras: null, parcial: true } };
+              nuevas.push(c.quiniela);
+            }
+            if (nuevas.length) {
+              resumen.cabezas = { ...(resumen.cabezas ?? {}), [t]: nuevas };
+              const sorteo = { fecha: ar.fecha, turno: t, numero: null, fuente: 'vivitusuerte', extractos: Object.values(estado.extractosHoy[t]) };
+              alGuardar(sorteo, 'cabezas');
+              alListo(sorteo, { nuevas, completo: false, soloCabeza: true });
+            }
+          }
+        } catch (e) {
+          resumen.errores.push(`vivitusuerte (cabezas): ${e.message}`);
         }
       }
     }

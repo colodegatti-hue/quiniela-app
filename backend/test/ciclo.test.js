@@ -423,3 +423,36 @@ test('vivitusuerte primero (si tiene el dato), después quinieleando', async () 
   assert.deepEqual(agregados, ['provincia', 'santafe', 'cordoba']);
   assert.deepEqual(r.respaldo, { provincia: 'vivitusuerte', santafe: 'vivitusuerte', cordoba: 'quinieleando' });
 });
+
+test('Cabeza anticipada: se avisa sola y después llega el extracto completo', async () => {
+  const base = baseEnMemoria();
+  base.sorteos.set('2026-10-19|previa', { numero: 53052, fuente: 'lotba', extractos: [] });
+  const cabezasGuardadas = [];
+  base.guardarCabeza = async (fecha, turno, q, c) => { cabezasGuardadas.push(`${turno}:${q}:${c}`); return true; };
+  base.agregarExtracto = async () => 'agregado';
+  const lot = lotbaDeAPoco(53053, '2026-10-19', 'primera');
+  const f = lot.fuentes();
+  let viviTiene = [];
+  f.buscarVivi = async (q, fecha) => (viviTiene.includes(q) ? [{ fecha, turno: 'primera', numeros: CIUDAD }] : []);
+  f.buscarCabezasVivi = async () => [{ turno: 'primera', quiniela: 'entrerios', cabeza: '4321' }, { turno: 'primera', quiniela: 'montevideo', cabeza: '1111' }];
+  const listos = [];
+  const ciclo = crearCiclo({ base, fuentes: f, alListo: (s, x) => listos.push({ nuevas: x.nuevas.join(','), soloCabeza: Boolean(x.soloCabeza), ex: s.extractos.find((e) => e.quiniela === 'entrerios') }) });
+
+  const r = await ciclo.tick(a12(3));
+  assert.deepEqual(cabezasGuardadas, ['primera:entrerios:4321']);
+  assert.deepEqual(r.cabezas, { primera: ['entrerios'] });
+  assert.equal(listos.length, 1);
+  assert.equal(listos[0].soloCabeza, true);
+  assert.equal(listos[0].ex.numeros[0], '4321');
+  assert.equal(listos[0].ex.parcial, true);
+
+  await ciclo.tick(a12(4)); // no la vuelve a avisar
+  assert.equal(listos.length, 1);
+
+  viviTiene = ['entrerios']; // llegan los 20 números
+  await ciclo.tick(a12(5));
+  assert.equal(listos.length, 2);
+  assert.equal(listos[1].nuevas, 'entrerios');
+  assert.equal(listos[1].soloCabeza, false);
+  assert.deepEqual(listos[1].ex.numeros, CIUDAD);
+});

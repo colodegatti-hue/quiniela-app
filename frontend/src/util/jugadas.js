@@ -2,7 +2,7 @@
 // jugadas.js — Guardar jugadas en el teléfono y controlarlas
 // Usa las reglas de premios compartidas con el servidor (shared/premios.js)
 // =====================================================================
-import { evaluarDirecta, UBICACIONES } from '../../../shared/premios.js';
+import { evaluarConLoQueHay, UBICACIONES } from '../../../shared/premios.js';
 import { extractoDe, turnoPorId, TURNOS, QUINIELAS, sortea } from './datos.js';
 import { yaEsLaHora } from './fechas.js';
 
@@ -85,7 +85,11 @@ export function controlarJugada(jugada, resultados, instante = new Date()) {
         filas.push({ turno, quiniela, estado: yaEsLaHora(jugada.fecha, hora, instante) ? 'demora' : 'falta' });
         continue;
       }
-      const r = evaluarDirecta({ numero: jugada.numero, desde, hasta, monto }, extracto);
+      const { estado, resultado: r } = evaluarConLoQueHay({ numero: jugada.numero, desde, hasta, monto }, extracto);
+      if (estado === 'pendiente') { // ya está la cabeza pero faltan números de su ubicación
+        filas.push({ turno, quiniela, estado: 'demora' });
+        continue;
+      }
       filas.push({ turno, quiniela, estado: r.gano ? 'gano' : 'no', aciertos: r.aciertos, premio: jugada.monto ? r.premio : null, veces: r.premio / monto });
     }
   }

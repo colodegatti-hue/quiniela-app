@@ -147,3 +147,15 @@ test('Rechaza datos inválidos', () => {
   assert.throws(() => evaluarRedoblona({ numero1: '7', desde1: 1, hasta1: 1, numero2: '92', desde2: 2, hasta2: 2, monto: 100 }, MATUTINA_08_10));
   assert.throws(() => evaluarRedoblona({ numero1: '79', desde1: 5, hasta1: 5, numero2: '92', desde2: 5, hasta2: 5, monto: 100 }, MATUTINA_08_10));
 });
+
+test('Extracto parcial (solo la cabeza): gana si acierta lo conocido, si no queda pendiente', async () => {
+  const { evaluarConLoQueHay, esParcial } = await import('./premios.js');
+  const parcial = ['9179', ...Array(19).fill('')];
+  assert.equal(esParcial(parcial), true);
+  assert.equal(evaluarConLoQueHay({ numero: '79', desde: 1, hasta: 1, monto: 100 }, parcial).estado, 'gano');
+  assert.equal(evaluarConLoQueHay({ numero: '79', desde: 1, hasta: 1, monto: 100 }, parcial).resultado.premio, 7000);
+  assert.equal(evaluarConLoQueHay({ numero: '12', desde: 1, hasta: 1, monto: 100 }, parcial).estado, 'no'); // la cabeza ya se sabe
+  assert.equal(evaluarConLoQueHay({ numero: '12', desde: 1, hasta: 5, monto: 100 }, parcial).estado, 'pendiente');
+  assert.equal(evaluarConLoQueHay({ numero: '0', desde: 1, hasta: 5, monto: 100 }, parcial).estado, 'pendiente'); // el relleno no cuenta
+  assert.equal(evaluarConLoQueHay({ numero: '79', desde: 1, hasta: 20, monto: 100 }, parcial).resultado.premio, 350);
+});

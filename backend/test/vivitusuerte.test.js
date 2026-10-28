@@ -17,3 +17,14 @@ test('Turnos incompletos o respuestas raras no se toman', () => {
   assert.deepEqual(interpretarVivi({ error: 1 }), []);
   assert.deepEqual(interpretarVivi(null), []);
 });
+
+test('Lee las cabezas sueltas de vivitusuerte (solo las de 4 cifras)', async () => {
+  const { interpretarCabezasVivi } = await import('../src/fuentes/vivitusuerte.js');
+  const json = { datos: { 1: { momento_5: '3520', momento_1: '----' }, 5: { momento_4: '0712' }, 4: { momento_2: '439' }, 99: { momento_1: '1111' } } };
+  assert.deepEqual(interpretarCabezasVivi(json), [
+    { turno: 'previa', quiniela: 'ciudad', cabeza: '3520' },
+    { turno: 'nocturna', quiniela: 'entrerios', cabeza: '0712' },
+  ]);
+  assert.deepEqual(interpretarCabezasVivi({ datos: [{ id: 3, momento_3: '9999' }] }), [{ turno: 'vespertina', quiniela: 'santafe', cabeza: '9999' }]);
+  assert.deepEqual(interpretarCabezasVivi(null), []);
+});
