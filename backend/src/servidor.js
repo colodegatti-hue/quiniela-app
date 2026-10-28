@@ -7,6 +7,7 @@
 //   SORTEO_INICIAL       n.º de sorteo desde el que arranca si la base está vacía
 //   ORIGENES_PERMITIDOS  dominios de la app separados por coma (vacío = todos)
 // =====================================================================
+import { buscarCabezasVivi } from './fuentes/vivitusuerte.js';
 import express from 'express';
 import {
   conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero, guardarSorteo, estadisticas,
@@ -123,6 +124,20 @@ app.get('/cron/tick', exigirClave, async (req, res) => {
     console.error('[tick] error:', e);
     ciclo.olvidarEstado();
     res.status(500).json({ error: e.message });
+  }
+});
+
+// Diagnóstico: qué cabezas lee de vivitusuerte para una fecha (pide la clave)
+app.get('/api/diag/cabezas', exigirClave, async (req, res) => {
+  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(req.query.fecha ?? '') ? req.query.fecha : null;
+  if (!fecha) return res.status(400).json({ error: 'fecha AAAA-MM-DD' });
+  try {
+    const cabezas = await buscarCabezasVivi(fecha);
+    console.log('[diag cabezas]', fecha, JSON.stringify(cabezas));
+    res.json({ fecha, cantidad: cabezas.length, cabezas });
+  } catch (e) {
+    console.error('[diag cabezas] error:', e.message);
+    res.status(502).json({ error: e.message });
   }
 });
 
