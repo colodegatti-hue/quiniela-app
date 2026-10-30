@@ -99,3 +99,53 @@ create table if not exists cabezas (
   visto_en timestamptz not null default now(),
   primary key (fecha, turno, quiniela)
 );
+
+-- ---- Medición de uso (anónima) y panel administrativo ---------------
+-- Cada teléfono que abrió la app (id anónimo generado en el teléfono)
+create table if not exists dispositivos (
+  id text primary key,
+  origen text,                           -- de dónde llegó la primera vez: 'ag:CODIGO', 'inv', 'directo'...
+  primera_vez timestamptz not null default now(),
+  ultima_vez timestamptz not null default now()
+);
+create index if not exists dispositivos_primera on dispositivos (primera_vez);
+create index if not exists dispositivos_origen on dispositivos (origen);
+
+-- Un registro por teléfono y día en que usó la app
+create table if not exists actividad (
+  dia date not null,
+  dispositivo text not null,
+  pro boolean not null default false,
+  primary key (dia, dispositivo)
+);
+
+-- Agencias amigas (cada una con su enlace y QR)
+create table if not exists agencias (
+  codigo text primary key check (codigo ~ '^[a-z0-9-]{2,30}$'),
+  nombre text not null,
+  localidad text,
+  contacto text,
+  activa boolean not null default true,
+  creada timestamptz not null default now()
+);
+
+-- Entradas por el enlace/QR de cada agencia (cuenta escaneos, aunque el teléfono ya la tuviera)
+create table if not exists visitas (
+  dia date not null,
+  origen text not null,
+  cantidad int not null default 0,
+  primary key (dia, origen)
+);
+
+-- Qué hizo el administrador en el panel
+create table if not exists admin_registro (
+  id bigserial primary key,
+  cuando timestamptz not null default now(),
+  accion text not null,
+  detalle text,
+  ip text
+);
+
+-- Compras: de qué teléfono y origen vinieron (para medir agencias)
+alter table compras add column if not exists dispositivo text;
+alter table compras add column if not exists origen text;

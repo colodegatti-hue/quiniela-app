@@ -16,7 +16,7 @@ before(async () => {
   const esquema = await readFile(new URL('../sql/esquema.sql', import.meta.url), 'utf8');
   const c = new pg.Client({ connectionString: URL_PRUEBA });
   await c.connect();
-  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones, compras, licencias, arrepentimientos, cabezas cascade');
+  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones, compras, licencias, arrepentimientos, cabezas, dispositivos, actividad, agencias, visitas, admin_registro cascade');
   await c.query(esquema);
   await c.query(esquema); // se puede correr dos veces
   await c.end();
@@ -239,4 +239,31 @@ test('Base real: cabeza anticipada se ve como extracto parcial hasta que llegan 
   r = await db.resultadosDeFecha('2026-10-10');
   assert.equal(r.turnos[0].quinielas.entrerios.parcial, undefined);
   assert.deepEqual(r.turnos[0].quinielas.entrerios.numeros, MATUTINA_53009.entrerios);
+});
+
+test('Base real: medición de uso, agencias y resumen del panel', opciones, async () => {
+  const hoy = '2026-10-30';
+  const a = '11111111-1111-4111-8111-111111111111';
+  const b = '22222222-2222-4222-8222-222222222222';
+  assert.equal(await db.guardarAgencia({ codigo: 'la-suerte', nombre: 'La Suerte', localidad: 'Isla Verde' }), 'nueva');
+  assert.equal(await db.guardarAgencia({ codigo: 'la-suerte', nombre: 'La Suerte', localidad: 'Isla Verde (centro)' }), 'actualizada');
+  await db.registrarUso({ dispositivo: a, origen: 'ag:la-suerte', entrada: 'ag:la-suerte', pro: false, dia: hoy });
+  await db.registrarUso({ dispositivo: a, origen: 'ag:la-suerte', entrada: null, pro: true, dia: hoy }); // mismo día: no duplica
+  await db.registrarUso({ dispositivo: b, origen: 'directo', entrada: null, pro: false, dia: hoy });
+  await db.registrarUso({ dispositivo: b, origen: 'directo', entrada: 'ag:la-suerte', pro: false, dia: '2026-10-29' });
+  const r = await db.resumenAdmin(hoy);
+  assert.equal(r.activos.hoy, 2);
+  assert.equal(r.activos.dias7, 2);
+  assert.equal(r.activos.pro30, 1);
+  assert.equal(r.serie.length, 30);
+  assert.equal(r.serie.at(-1).activos, 2);
+  assert.equal(r.serie.at(-2).activos, 1);
+  assert.ok(r.origenes.some((o) => o.origen === 'ag:la-suerte' && o.telefonos === 1));
+  const [ag] = await db.agenciasConDatos(hoy);
+  assert.equal(ag.localidad, 'Isla Verde (centro)');
+  assert.equal(ag.visitas, 2);
+  assert.equal(ag.telefonos, 1);
+  assert.equal(ag.activos30, 1);
+  await db.anotarAdmin('entrada', null, '1.2.3.4');
+  assert.equal((await db.registroAdmin())[0].accion, 'entrada');
 });

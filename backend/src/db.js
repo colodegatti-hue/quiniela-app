@@ -344,8 +344,8 @@ export async function registrarFalloEnvio(endpoint) {
 
 const filaLicencia = (x) => (!x ? null : { codigo: x.codigo, plan: x.plan, vence: x.vence, dispositivos: x.dispositivos });
 
-export async function crearCompra({ referencia, codigo, plan, precio }) {
-  await db().query('insert into compras (referencia, codigo, plan, precio) values ($1, $2, $3, $4)', [referencia, codigo, plan, precio]);
+export async function crearCompra({ referencia, codigo, plan, precio, dispositivo = null, origen = null }) {
+  await db().query('insert into compras (referencia, codigo, plan, precio, dispositivo, origen) values ($1, $2, $3, $4, $5, $6)', [referencia, codigo, plan, precio, dispositivo, origen]);
 }
 
 export async function buscarCompra(referencia) {
@@ -443,4 +443,105 @@ export async function guardarCabeza(fecha, turno, quiniela, cabeza, fuente) {
     [fecha, turno, quiniela, cabeza, fuente],
   );
   return r.rowCount > 0;
+}
+
+// ---- Medición de uso -------------------------------------------------
+// Un teléfono abrió la app hoy. entrada = origen si llegó por un enlace (cuenta la visita)
+export async function registrarUso({ dispositivo, origen, pro, dia, entrada }) {
+  await db().query(
+    `insert into dispositivos (id, origen) values ($1, $2)
+     on conflict (id) do update set ultima_vez = now()`,
+    [dispositivo, origen],
+  );
+  await db().query(
+    `insert into actividad (dia, dispositivo, pro) values ($1, $2, $3)
+     on conflict (dia, dispositivo) do update set pro = actividad.pro or excluded.pro`,
+    [dia, dispositivo, Boolean(pro)],
+  );
+  if (entrada) {
+    await db().query(
+      `insert into visitas (dia, origen, cantidad) values ($1, $2, 1)
+       on conflict (dia, origen) do update set cantidad = visitas.cantidad + 1`,
+      [dia, entrada],
+    );
+  }
+}
+
+// ---- Panel administrativo --------------------------------------------
+export async function resumenAdmin(hoy) {
+  const q = async (sql, p = []) => (await db().query(sql, p)).rows;
+  const [activos] = await q(
+    `select count(distinct dispositivo) filter (where dia = $1)::int as hoy,
+            count(distinct dispositivo) filter (where dia > $1::date - 7)::int as dias7,
+            count(distinct dispositivo) filter (where dia > $1::date - 30)::int as dias30,
+            count(distinct dispositivo) filter (where dia > $1::date - 30 and pro)::int as pro30
+       from actividad where dia > $1::date - 30`, [hoy]);
+  const [nuevos] = await q(
+    `select count(*) filter (where (primera_vez at time zone 'America/Argentina/Buenos_Aires')::date = $1)::int as hoy,
+            count(*) filter (where (primera_vez at time zone 'America/Argentina/Buenos_Aires')::date > $1::date - 7)::int as dias7,
+            count(*) filter (where (primera_vez at time zone 'America/Argentina/Buenos_Aires')::date > $1::date - 30)::int as dias30,
+            count(*)::int as total
+       from dispositivos`, [hoy]);
+  const serie = await q(
+    `with dias as (select generate_series($1::date - 29, $1::date, '1 day')::date as dia)
+     select to_char(d.dia, 'YYYY-MM-DD') as dia,
+            (select count(*) from actividad a where a.dia = d.dia)::int as activos,
+            (select count(*) from dispositivos x where (x.primera_vez at time zone 'America/Argentina/Buenos_Aires')::date = d.dia)::int as nuevos
+       from dias d order by d.dia`, [hoy]);
+  const origenes = await q(
+    `select coalesce(origen, 'directo') as origen, count(*)::int as telefonos
+       from dispositivos group by 1 order by 2 desc limit 20`);
+  const [pro] = await q(
+    `select count(*) filter (where vence > now())::int as activos,
+            count(*) filter (where vence > now() and nota is null)::int as pagos,
+            count(*) filter (where vence > now() and vence < now() + interval '7 days')::int as vencen7,
+            count(*) filter (where vence <= now() and vence > now() - interval '30 days')::int as vencidos30
+       from licencias`);
+  const [ventas] = await q(
+    `select count(*) filter (where date_trunc('month', aprobada) = date_trunc('month', now()))::int as mes_cantidad,
+            coalesce(sum(precio) filter (where date_trunc('month', aprobada) = date_trunc('month', now())), 0)::float as mes_monto,
+            count(*) filter (where date_trunc('year', aprobada) = date_trunc('year', now()))::int as anio_cantidad,
+            coalesce(sum(precio) filter (where date_trunc('year', aprobada) = date_trunc('year', now())), 0)::float as anio_monto,
+            count(*) filter (where plan = 'mensual')::int as mensuales,
+            count(*) filter (where plan = 'anual')::int as anuales
+       from compras where estado = 'aprobada'`);
+  const [avisos] = await q('select count(*)::int as telefonos from suscripciones');
+  return { activos, nuevos, serie, origenes, pro, ventas, avisos };
+}
+
+export async function agenciasConDatos(hoy) {
+  const r = await db().query(
+    `select a.codigo, a.nombre, a.localidad, a.contacto, a.activa, a.creada,
+            coalesce((select sum(cantidad) from visitas v where v.origen = 'ag:' || a.codigo), 0)::int as visitas,
+            (select count(*) from dispositivos d where d.origen = 'ag:' || a.codigo)::int as telefonos,
+            (select count(distinct x.dispositivo) from actividad x join dispositivos d on d.id = x.dispositivo
+              where d.origen = 'ag:' || a.codigo and x.dia > $1::date - 30)::int as activos30,
+            (select count(*) from compras c where c.origen = 'ag:' || a.codigo and c.estado = 'aprobada')::int as compras_pro
+       from agencias a order by telefonos desc, a.creada`, [hoy]);
+  return r.rows;
+}
+
+export async function guardarAgencia({ codigo, nombre, localidad, contacto, activa = true }) {
+  const r = await db().query(
+    `insert into agencias (codigo, nombre, localidad, contacto, activa) values ($1, $2, $3, $4, $5)
+     on conflict (codigo) do update set nombre = excluded.nombre, localidad = excluded.localidad,
+       contacto = excluded.contacto, activa = excluded.activa
+     returning (xmax = 0) as nueva`,
+    [codigo, nombre, localidad || null, contacto || null, activa],
+  );
+  return r.rows[0].nueva ? 'nueva' : 'actualizada';
+}
+
+export async function buscarAgencia(codigo) {
+  const r = await db().query('select codigo, nombre, localidad from agencias where codigo = $1', [codigo]);
+  return r.rows[0] ?? null;
+}
+
+export async function anotarAdmin(accion, detalle, ip) {
+  await db().query('insert into admin_registro (accion, detalle, ip) values ($1, $2, $3)', [accion, detalle ?? null, ip ?? null]);
+}
+
+export async function registroAdmin(limite = 30) {
+  const r = await db().query('select cuando, accion, detalle, ip from admin_registro order by id desc limit $1', [limite]);
+  return r.rows;
 }
