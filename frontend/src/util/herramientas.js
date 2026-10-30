@@ -8,7 +8,7 @@ import { fechaCorta } from './fechas.js';
 const PAGOS = TABLAS_DE_PAGO.LOTBA;
 
 function enlaceApp() {
-  return typeof location !== 'undefined' ? location.origin : 'https://quiniela-app-i0j2.onrender.com';
+  return typeof location !== 'undefined' ? location.origin : 'https://quinielaaltoque.app';
 }
 
 // Texto para compartir un extracto completo

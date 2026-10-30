@@ -31,7 +31,7 @@ let configurado = false;
 function configurar() {
   if (configurado || !pushConfigurado()) return configurado;
   webpush.setVapidDetails(
-    process.env.VAPID_CONTACTO || 'https://quiniela-app-i0j2.onrender.com',
+    process.env.VAPID_CONTACTO || 'mailto:coloapps.soporte@gmail.com',
     process.env.VAPID_PUBLICA,
     process.env.VAPID_PRIVADA,
   );
