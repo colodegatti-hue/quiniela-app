@@ -9,6 +9,7 @@ import Pro from './pantallas/Pro.jsx';
 import Legal from './pantallas/Legal.jsx';
 import Arrepentimiento from './pantallas/Arrepentimiento.jsx';
 import { usePro, tomarRetorno, revisarPro } from './util/pro.js';
+import { capturarOrigen, avisarUso } from './util/medicion.js';
 
 const PANTALLAS = {
   resultados: { titulo: 'Resultados', componente: Resultados },
@@ -22,6 +23,7 @@ const PANTALLAS = {
   arrepentimiento: { componente: Arrepentimiento, seccion: 'como-se-juega' }, // botón de arrepentimiento
 };
 
+capturarOrigen(); // si entró por el QR o enlace de una agencia, recordarlo
 tomarRetorno(); // si vuelve de pagar en Mercado Pago, ir a la pantalla Pro
 
 function pantallaActual() {
@@ -34,6 +36,14 @@ export default function App() {
   const { pro } = usePro();
 
   useEffect(() => { revisarPro(); }, []);
+
+  // Medición anónima: una vez por día (y al volver a la app si cambió el día)
+  useEffect(() => {
+    avisarUso({ pro });
+    const alVolver = () => { if (document.visibilityState === 'visible') avisarUso({ pro }); };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => document.removeEventListener('visibilitychange', alVolver);
+  }, [pro]);
 
   useEffect(() => {
     const alCambiar = () => {

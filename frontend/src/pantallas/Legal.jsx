@@ -27,6 +27,11 @@ export default function Legal() {
           de la app.
         </li>
         <li>
+          <strong>Estadísticas de uso:</strong> una vez por día la app le avisa a nuestro servidor que fue abierta, con el
+          identificador anónimo del teléfono, si llegaste por el enlace o QR de una agencia amiga y si sos Pro. Sirve
+          para saber cuántas personas usan la app. No incluye tu nombre, tus jugadas ni datos de contacto.
+        </li>
+        <li>
           <strong>Si activás los avisos:</strong> guardamos en nuestro servidor la dirección de notificaciones que da tu
           navegador, tus preferencias de avisos, una copia de tus jugadas de hoy en adelante (para avisarte si salen) y,
           si sos Pro, tu código. Si desactivás los avisos, se borra esa información.

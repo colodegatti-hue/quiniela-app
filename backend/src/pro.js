@@ -46,7 +46,7 @@ export function crearPro(opciones = {}) {
   }
 
   // plan: 'mensual' | 'anual'. codigo (opcional): renovar ese código.
-  async function comprar({ plan, codigo }) {
+  async function comprar({ plan, codigo, dispositivo, origen }) {
     const p = planes()[plan];
     if (!p) return { error: 'Plan inválido' };
     let cod = null;
@@ -56,7 +56,9 @@ export function crearPro(opciones = {}) {
     }
     cod ??= await codigoLibre();
     const referencia = nuevaReferencia();
-    await base.crearCompra({ referencia, codigo: cod, plan, precio: p.precio });
+    const disp = /^[0-9a-f-]{36}$/.test(String(dispositivo ?? '')) ? dispositivo : null;
+    const ori = /^[a-z0-9:-]{1,40}$/.test(String(origen ?? '')) ? origen : null;
+    await base.crearCompra({ referencia, codigo: cod, plan, precio: p.precio, dispositivo: disp, origen: ori });
     const pref = await mp.crearPreferencia({
       titulo: p.titulo,
       precio: p.precio,

@@ -6,13 +6,16 @@
 //   CLAVE_CRON           clave secreta para /cron/tick y el diagnóstico
 //   SORTEO_INICIAL       n.º de sorteo desde el que arranca si la base está vacía
 //   ORIGENES_PERMITIDOS  dominios de la app separados por coma (vacío = todos)
+//   ADMIN_CLAVE          clave del panel privado /admin (sin ella el panel queda apagado)
 // =====================================================================
 import { buscarCabezasVivi } from './fuentes/vivitusuerte.js';
 import express from 'express';
 import {
   conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero, guardarSorteo, estadisticas,
   guardarSuscripcion, actualizarSuscripcion, borrarSuscripcion, crearArrepentimiento, listarArrepentimientos,
+  registrarUso,
 } from './db.js';
+import { montarAdmin } from './admin.js';
 import { crearAvisos, pushConfigurado } from './avisos.js';
 import { crearPro, planes, codigoValido } from './pro.js';
 import { mpConfigurado, crearPreferencia } from './mercadopago.js';
@@ -140,6 +143,37 @@ app.get('/api/diag/cabezas', exigirClave, async (req, res) => {
     res.status(502).json({ error: e.message });
   }
 });
+
+// ---- Medición de uso: cada teléfono avisa una vez por día que abrió la app (anónimo)
+// Cuerpo: { d: id del teléfono, o: origen de la primera vez, e: origen si entró ahora por un enlace, p: es Pro }
+const ORIGEN_OK = /^(directo|inv|ag:[a-z0-9-]{2,30})$/;
+const pingsPorIp = new Map();
+app.post('/api/ping', async (req, res) => {
+  const ip = String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+  const n = (pingsPorIp.get(ip) ?? 0) + 1;
+  pingsPorIp.set(ip, n);
+  if (pingsPorIp.size > 20000) pingsPorIp.clear();
+  if (n > 60) return res.status(429).json({ ok: false });
+  const { d, o, e, p } = req.body || {};
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(String(d ?? ''))) return res.status(400).json({ ok: false });
+  try {
+    await registrarUso({
+      dispositivo: d,
+      origen: ORIGEN_OK.test(String(o ?? '')) ? o : 'directo',
+      entrada: ORIGEN_OK.test(String(e ?? '')) && e !== 'directo' ? e : null,
+      pro: p === true,
+      dia: horaArgentina().fecha,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[ping] error:', err.message);
+    res.status(500).json({ ok: false });
+  }
+});
+setInterval(() => pingsPorIp.clear(), 3600000).unref();
+
+// ---- Panel privado
+montarAdmin(app);
 
 // Resultados de un día. Sin fecha = hoy. Formato de fecha: AAAA-MM-DD
 app.get('/api/resultados', async (req, res) => {
@@ -316,9 +350,9 @@ app.get('/api/pro/planes', (req, res) => {
 
 app.post('/api/pro/comprar', async (req, res) => {
   if (!mpConfigurado()) return res.status(503).json({ error: 'El pago todavía no está habilitado' });
-  const { plan, codigo } = req.body || {};
+  const { plan, codigo, dispositivo, origen } = req.body || {};
   try {
-    const r = await pro.comprar({ plan, codigo });
+    const r = await pro.comprar({ plan, codigo, dispositivo, origen });
     if (r.error) return res.status(400).json(r);
     res.json(r);
   } catch (e) {

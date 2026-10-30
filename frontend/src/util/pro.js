@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { API } from './datos.js';
 import { idDispositivo } from './jugadas.js';
+import { origenGuardado } from './medicion.js';
 
 const CLAVE = 'quiniela.pro.v1';
 const CLAVE_PENDIENTE = 'quiniela.pro.pendiente';
@@ -93,7 +94,7 @@ export function olvidarCodigo() {
 
 // Va a Mercado Pago. Si ya tiene código, lo renueva (suma los días).
 export async function comprar(plan) {
-  const r = await pedir('/api/pro/comprar', { plan, codigo: leerPro()?.codigo });
+  const r = await pedir('/api/pro/comprar', { plan, codigo: leerPro()?.codigo, dispositivo: idDispositivo(), origen: origenGuardado() });
   if (r.error || !r.url) throw new Error(r.error || 'No se pudo iniciar el pago');
   escribir(CLAVE_PENDIENTE, r.referencia);
   window.location.href = r.url;
