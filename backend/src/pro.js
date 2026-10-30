@@ -20,8 +20,8 @@ export function planes() {
   };
 }
 
-const APP_URL = () => (process.env.APP_URL || 'https://quiniela-app-i0j2.onrender.com').replace(/\/$/, '');
-const SERVIDOR_URL = () => (process.env.SERVIDOR_URL || 'https://quiniela-backend-ou9g.onrender.com').replace(/\/$/, '');
+const APP_URL = () => (process.env.APP_URL || 'https://quinielaaltoque.app').replace(/\/$/, '');
+const SERVIDOR_URL = () => (process.env.SERVIDOR_URL || 'https://api.quinielaaltoque.app').replace(/\/$/, '');
 
 export const codigoValido = (c) => /^\d{6}$/.test(String(c ?? ''));
 

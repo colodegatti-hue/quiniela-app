@@ -60,7 +60,7 @@ export function codigoDesdeNombre(nombre) {
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-export function montarAdmin(app, { base = baseReal, clave = () => process.env.ADMIN_CLAVE || '', appUrl = () => process.env.APP_URL || 'https://quiniela-app-i0j2.onrender.com' } = {}) {
+export function montarAdmin(app, { base = baseReal, clave = () => process.env.ADMIN_CLAVE || '', appUrl = () => process.env.APP_URL || 'https://quinielaaltoque.app' } = {}) {
   const r = express.Router();
   const fallos = new Map(); // ip -> { n, desde }
 

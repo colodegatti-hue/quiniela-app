@@ -65,8 +65,8 @@ test('Comprar: crea la compra y el link de Mercado Pago con la referencia y la v
   assert.deepEqual(r, { url: 'https://mp/pagar/ref-1', referencia: 'ref-1' });
   assert.equal(base.compras.get('ref-1').codigo, '123456');
   assert.equal(mp.preferencias[0].precio, 1990);
-  assert.equal(mp.preferencias[0].urlVuelta, 'https://quiniela-app-i0j2.onrender.com/?pro=ref-1');
-  assert.equal(mp.preferencias[0].urlAvisos, 'https://quiniela-backend-ou9g.onrender.com/api/pro/aviso-pago');
+  assert.equal(mp.preferencias[0].urlVuelta, 'https://quinielaaltoque.app/?pro=ref-1');
+  assert.equal(mp.preferencias[0].urlAvisos, 'https://api.quinielaaltoque.app/api/pro/aviso-pago');
   assert.deepEqual(await pro.comprar({ plan: 'semanal' }), { error: 'Plan inválido' });
 });
 

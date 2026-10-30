@@ -3,7 +3,7 @@
 // (los mismos datos que backend/src/horarios.js)
 // =====================================================================
 
-export const API = (import.meta.env?.VITE_API_URL || 'https://quiniela-backend-ou9g.onrender.com').replace(/\/$/, '');
+export const API = (import.meta.env?.VITE_API_URL || 'https://api.quinielaaltoque.app').replace(/\/$/, '');
 
 export const QUINIELAS = [
   { id: 'ciudad', nombre: 'Ciudad', completo: 'Ciudad (ex Nacional)' },
