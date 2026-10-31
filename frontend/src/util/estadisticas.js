@@ -3,9 +3,15 @@
 // Los datos vienen del servidor (/api/estadisticas)
 // =====================================================================
 import { API } from './datos.js';
+import { idDispositivo } from './jugadas.js';
+import { leerPro } from './pro.js';
 
 export async function obtenerEstadisticas(quiniela, dias) {
-  const r = await fetch(`${API}/api/estadisticas?quiniela=${quiniela}&dias=${dias}`, { signal: AbortSignal.timeout(60000) });
+  // Las quinielas y períodos Pro los valida el servidor con el código y el teléfono
+  const codigo = leerPro()?.codigo;
+  const extra = codigo ? `&codigo=${codigo}&dispositivo=${idDispositivo()}` : '';
+  const r = await fetch(`${API}/api/estadisticas?quiniela=${quiniela}&dias=${dias}${extra}`, { signal: AbortSignal.timeout(60000) });
+  if (r.status === 403) throw new Error('pro');
   if (!r.ok) throw new Error(`El servidor respondió ${r.status}`);
   return r.json();
 }

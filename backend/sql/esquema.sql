@@ -152,3 +152,14 @@ alter table compras add column if not exists origen text;
 
 -- Recuperar el Pro en un celular nuevo con el número de operación (máx. 1 vez cada 2 días)
 alter table licencias add column if not exists recuperada_en timestamptz;
+
+-- Teléfonos de Colo que reciben las alertas de fallas (se marcan desde el panel)
+create table if not exists admin_dispositivos (
+  dispositivo text primary key,
+  creado timestamptz not null default now()
+);
+-- Alertas de fallas ya avisadas ("fecha|turno|quiniela")
+create table if not exists alertas_admin (
+  clave text primary key,
+  creada timestamptz not null default now()
+);

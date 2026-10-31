@@ -42,8 +42,23 @@ function leerMemoria(fecha) {
   }
 }
 
+// Borra los resultados guardados de hace más de 14 días (para no llenar el teléfono)
+export function podarMemoria(fechaActual, almacen = localStorage) {
+  const limite = new Date(`${fechaActual}T12:00:00Z`);
+  limite.setUTCDate(limite.getUTCDate() - 14);
+  const desde = limite.toISOString().slice(0, 10);
+  const viejas = [];
+  for (let i = 0; i < almacen.length; i++) {
+    const k = almacen.key(i);
+    if (k?.startsWith(CLAVE_MEMORIA) && k.slice(CLAVE_MEMORIA.length) < desde) viejas.push(k);
+  }
+  for (const k of viejas) almacen.removeItem(k);
+  return viejas.length;
+}
+
 function guardarMemoria(fecha, datos) {
   try {
+    podarMemoria(new Date().toISOString().slice(0, 10));
     localStorage.setItem(CLAVE_MEMORIA + fecha, JSON.stringify(datos));
   } catch {
     /* sin espacio o modo privado: no pasa nada */

@@ -217,5 +217,14 @@ export function crearAvisos(opciones = {}) {
     return { ok: informe.enviados === 1 };
   }
 
-  return { avisarSorteo, recordar, prueba };
+  // Alertas de fallas para los teléfonos de administrador
+  async function avisarAdmins(datos) {
+    const informe = { enviados: 0, fallidos: 0 };
+    if (!activo()) return informe;
+    const subs = await base.listarSuscripcionesAdmin();
+    await Promise.all(subs.map((s) => mandar(s, datos, informe)));
+    return informe;
+  }
+
+  return { avisarSorteo, recordar, prueba, avisarAdmins };
 }

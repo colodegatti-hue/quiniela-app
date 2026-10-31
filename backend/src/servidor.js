@@ -13,8 +13,9 @@ import express from 'express';
 import {
   conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero, guardarSorteo, estadisticas,
   guardarSuscripcion, actualizarSuscripcion, borrarSuscripcion, crearArrepentimiento, listarArrepentimientos,
-  registrarUso,
+  registrarUso, esProDispositivo, alertaNueva,
 } from './db.js';
+import { crearVigilancia } from './vigilancia.js';
 import { montarAdmin } from './admin.js';
 import { crearAvisos, pushConfigurado } from './avisos.js';
 import { crearPro, planes, codigoValido } from './pro.js';
@@ -55,6 +56,8 @@ async function obtenerResultados(fecha) {
 }
 
 const avisos = crearAvisos();
+// Si falta una quiniela pasado un rato del sorteo, le avisa a los teléfonos de administrador
+const vigilancia = crearVigilancia({ base: { alertaNueva }, enviar: (datos) => avisos.avisarAdmins(datos) });
 const pro = crearPro();
 const cacheEstadisticas = new Map(); // "quiniela|dias|fecha" -> datos (se borra cuando llega un sorteo)
 const IDS_ESTADISTICAS = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios', 'mendoza', 'montevideo'];
@@ -119,6 +122,12 @@ app.get('/cron/tick', exigirClave, async (req, res) => {
     } catch (e) {
       console.error('[recordatorio] error:', e.message);
     }
+    try {
+      const fallas = await vigilancia.revisar(ciclo.verEstado());
+      if (fallas.length) resumen.alertasFallas = fallas;
+    } catch (e) {
+      console.error('[vigilancia] error:', e.message);
+    }
     ultimoTick.resumen = resumen;
     console.log('[tick]', JSON.stringify(resumen));
     // Respuesta corta (cron-job.org rechaza respuestas grandes). El detalle queda en los logs.
@@ -153,7 +162,7 @@ app.post('/api/ping', async (req, res) => {
   const n = (pingsPorIp.get(ip) ?? 0) + 1;
   pingsPorIp.set(ip, n);
   if (pingsPorIp.size > 20000) pingsPorIp.clear();
-  if (n > 60) return res.status(429).json({ ok: false });
+  if (n > 600) return res.status(429).json({ ok: false }); // muchos celulares comparten IP (CGNAT)
   const { d, o, e, p } = req.body || {};
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(String(d ?? ''))) return res.status(400).json({ ok: false });
   try {
@@ -173,7 +182,7 @@ app.post('/api/ping', async (req, res) => {
 setInterval(() => pingsPorIp.clear(), 3600000).unref();
 
 // ---- Panel privado
-montarAdmin(app);
+montarAdmin(app, { estadoCiclo: () => ciclo.verEstado() });
 
 // Resultados de un día. Sin fecha = hoy. Formato de fecha: AAAA-MM-DD
 app.get('/api/resultados', async (req, res) => {
@@ -221,6 +230,14 @@ app.get('/api/estadisticas', async (req, res) => {
   const dias = Number(req.query.dias || 30);
   if (!IDS_ESTADISTICAS.includes(quiniela)) return res.status(400).json({ error: 'Quiniela inválida' });
   if (!Number.isInteger(dias) || dias < 7 || dias > 365) return res.status(400).json({ error: 'Los días tienen que ser de 7 a 365' });
+  // Gratis: Ciudad y Provincia, últimos 30 días. El resto es Pro (se valida acá, no solo en la app)
+  const gratis = ['ciudad', 'provincia'].includes(quiniela) && dias === 30;
+  if (!gratis) {
+    const codigo = String(req.query.codigo || '');
+    const dispositivo = String(req.query.dispositivo || '');
+    const ok = codigoValido(codigo) && /^[0-9a-f-]{36}$/.test(dispositivo) && await esProDispositivo(codigo, dispositivo).catch(() => false);
+    if (!ok) return res.status(403).json({ error: 'Estas estadísticas son de la versión Pro' });
+  }
   const hoy = horaArgentina().fecha;
   const clave = `${quiniela}|${dias}|${hoy}`;
   try {
@@ -230,7 +247,7 @@ app.get('/api/estadisticas', async (req, res) => {
       cacheEstadisticas.set(clave, datos);
       if (cacheEstadisticas.size > 100) cacheEstadisticas.delete(cacheEstadisticas.keys().next().value);
     }
-    res.set('Cache-Control', 'public, max-age=120');
+    res.set('Cache-Control', gratis ? 'public, max-age=120' : 'private, max-age=120');
     res.json(datos);
   } catch (e) {
     console.error('[estadisticas] error:', e);

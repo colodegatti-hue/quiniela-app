@@ -64,7 +64,7 @@ export default function Estadisticas() {
     setEstado((e) => ({ ...e, cargando: true, error: null }));
     obtenerEstadisticas(quiniela, dias)
       .then((datos) => vigente && setEstado({ cargando: false, datos, error: null }))
-      .catch(() => vigente && setEstado({ cargando: false, datos: null, error: 'No pudimos traer las estadísticas. Revisá tu conexión y probá de nuevo.' }));
+      .catch((e) => vigente && setEstado({ cargando: false, datos: null, error: e.message === 'pro' ? 'Estas estadísticas son de la versión Pro y tu código no está activo en este teléfono.' : 'No pudimos traer las estadísticas. Revisá tu conexión y probá de nuevo.' }));
     return () => { vigente = false; };
   }, [quiniela, dias, bloqueado]);
 

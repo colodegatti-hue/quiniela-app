@@ -47,3 +47,11 @@ test('Intensidad para la grilla', () => {
   assert.equal(intensidad(10, 10), 4);
   assert.equal(intensidad(6, 10), 3);
 });
+
+test('Poda de resultados guardados de más de 14 días', async () => {
+  const { podarMemoria } = await import('../src/util/datos.js');
+  const m = new Map([['quiniela.resultados.2026-10-01', '{}'], ['quiniela.resultados.2026-10-20', '{}'], ['quiniela.pro.v1', '{}']]);
+  const almacen = { get length() { return m.size; }, key: (i) => [...m.keys()][i] ?? null, removeItem: (k) => m.delete(k) };
+  assert.equal(podarMemoria('2026-10-31', almacen), 1);
+  assert.deepEqual([...m.keys()], ['quiniela.resultados.2026-10-20', 'quiniela.pro.v1']);
+});
