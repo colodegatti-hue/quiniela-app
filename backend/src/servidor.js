@@ -425,6 +425,12 @@ app.get('/api/pro/arrepentimientos', exigirClave, async (req, res) => {
 
 // Diagnóstico: crea un link de pago de prueba SIN guardar nada (para ver que Mercado Pago responde)
 app.get('/api/pro/prueba-mp', exigirClave, async (req, res) => {
+  // Forma del token (sin mostrarlo): un Access Token es APP_USR-<números>-<números>-<letras>-<números>
+  const t = String(process.env.MP_ACCESS_TOKEN || '');
+  const forma = { largo: t.length, partes: t.split('-').length, pareceAccessToken: /^(APP_USR|TEST)-\d+-\d+-[0-9a-f]+-\d+$/.test(t), espaciosOComillas: /[\s"']/.test(t) };
+  console.log('[pro] forma del token:', JSON.stringify(forma));
+  const cuentaAntes = await cuentaMp().catch((e) => ({ error: e.message }));
+  console.log('[pro] cuenta del token:', JSON.stringify(cuentaAntes));
   try {
     const p = await crearPreferencia({
       titulo: 'Prueba', precio: 10, referencia: `prueba-${Date.now()}`,
