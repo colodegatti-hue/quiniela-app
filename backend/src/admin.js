@@ -10,7 +10,9 @@ import crypto from 'node:crypto';
 import express from 'express';
 import QRCode from 'qrcode';
 import * as baseReal from './db.js';
-import { horaArgentina } from './horarios.js';
+import { horaArgentina, TURNOS } from './horarios.js';
+import { quinielasEsperadas } from './ciclo.js';
+import { faltantes } from './vigilancia.js';
 
 const COOKIE = 'qat_admin';
 const DURACION_MS = 30 * 864e5;
@@ -60,7 +62,7 @@ export function codigoDesdeNombre(nombre) {
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-export function montarAdmin(app, { base = baseReal, clave = () => process.env.ADMIN_CLAVE || '', appUrl = () => process.env.APP_URL || 'https://quinielaaltoque.app' } = {}) {
+export function montarAdmin(app, { base = baseReal, clave = () => process.env.ADMIN_CLAVE || '', appUrl = () => process.env.APP_URL || 'https://quinielaaltoque.app', estadoCiclo = () => null } = {}) {
   const r = express.Router();
   const fallos = new Map(); // ip -> { n, desde }
 
@@ -76,30 +78,57 @@ export function montarAdmin(app, { base = baseReal, clave = () => process.env.AD
   const logueado = (req) => tokenValido(leerCookie(req, COOKIE), clave());
   const exigir = (req, res, next) => (logueado(req) ? next() : res.status(401).json({ error: 'Sesión vencida' }));
 
-  r.get('/', (req, res) => res.type('html').send(logueado(req) ? PANEL : LOGIN('')));
+  const tel = (v) => (/^[0-9a-f-]{36}$/.test(String(v || '')) ? String(v) : '');
+  r.get('/', (req, res) => res.type('html').send(logueado(req) ? PANEL : LOGIN('', tel(req.query.d))));
 
   r.post('/entrar', express.urlencoded({ extended: false, limit: '2kb' }), async (req, res) => {
     const ip = ipDe(req);
     const f = fallos.get(ip);
     if (f && Date.now() - f.desde < 15 * 60000 && f.n >= 5) {
-      return res.status(429).type('html').send(LOGIN('Demasiados intentos. Esperá 15 minutos.'));
+      return res.status(429).type('html').send(LOGIN('Demasiados intentos. Esperá 15 minutos.', tel(req.body?.d)));
     }
     if (!iguales(req.body?.clave ?? '', clave())) {
       if (!f || Date.now() - f.desde >= 15 * 60000) fallos.set(ip, { n: 1, desde: Date.now() });
       else f.n++;
       if (fallos.size > 1000) fallos.clear();
       base.anotarAdmin('entrada fallida', null, ip).catch(() => {});
-      return res.status(401).type('html').send(LOGIN('Clave incorrecta.'));
+      return res.status(401).type('html').send(LOGIN('Clave incorrecta.', tel(req.body?.d)));
     }
     fallos.delete(ip);
     base.anotarAdmin('entrada', null, ip).catch(() => {});
     res.set('Set-Cookie', `${COOKIE}=${crearToken(clave())}; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=${DURACION_MS / 1000}`);
-    res.redirect(303, '/admin');
+    const d = tel(req.body?.d);
+    res.redirect(303, d ? `/admin?d=${d}` : '/admin');
   });
 
   r.post('/salir', (req, res) => {
     res.set('Set-Cookie', `${COOKIE}=; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
     res.redirect(303, '/admin');
+  });
+
+  // Estado de hoy: qué quinielas llegaron de cada turno y cuáles faltan
+  r.get('/api/hoy', exigir, async (req, res) => {
+    const e = estadoCiclo();
+    const vistas = e?.vistas ?? {};
+    const cabezas = e?.cabezasHoy ?? {};
+    const turnos = TURNOS.map((t) => ({
+      turno: t.id, nombre: t.nombre, hora: t.hora,
+      esperadas: quinielasEsperadas(t.id, 'lotba'),
+      llegaron: vistas[t.id] ?? [],
+      soloCabeza: (cabezas[t.id] ?? []).filter((q) => !(vistas[t.id] ?? []).includes(q)),
+      fuente: e?.sorteosHoy?.[t.id] ?? null,
+    }));
+    const alertas = await base.contarDispositivosAdmin().catch(() => ({ marcados: 0, con_avisos: 0 }));
+    res.json({ fecha: e?.fecha ?? horaArgentina().fecha, turnos, faltan: faltantes({ vistas }), alertas });
+  });
+
+  // Marcar este teléfono para recibir las alertas de fallas
+  r.post('/api/alertas-telefono', exigir, async (req, res) => {
+    const d = String(req.body?.dispositivo || '');
+    if (!/^[0-9a-f-]{36}$/.test(d)) return res.status(400).json({ error: 'Abrí el panel desde la app (10 toques en el nombre) para marcar este teléfono.' });
+    await base.marcarDispositivoAdmin(d);
+    base.anotarAdmin('teléfono de alertas', d.slice(0, 8), ipDe(req)).catch(() => {});
+    res.json({ ok: true });
   });
 
   r.get('/api/resumen', exigir, async (req, res) => {
@@ -207,11 +236,11 @@ input{padding:9px;border:1px solid var(--borde);border-radius:8px;font-size:15px
 .error{color:var(--acento)}
 `;
 
-const LOGIN = (mensaje) => `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+const LOGIN = (mensaje, d = '') => `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>Panel Quiniela al Toque</title><style>${ESTILO}
 .login{max-width:340px;margin:12vh auto;padding:0 16px}.login .caja{padding:20px}</style></head><body>
 <div class="login"><div class="caja"><h1 style="font-size:20px;margin-top:0">Panel privado</h1>
-<form method="post" action="/admin/entrar"><input type="password" name="clave" placeholder="Clave" autocomplete="current-password" autofocus required>
+<form method="post" action="/admin/entrar">${d ? `<input type="hidden" name="d" value="${esc(d)}">` : ''}<input type="password" name="clave" placeholder="Clave" autocomplete="current-password" autofocus required>
 <p><button type="submit" style="width:100%">Entrar</button></p></form>
 ${mensaje ? `<p class="error">${esc(mensaje)}</p>` : ''}</div></div></body></html>`;
 
@@ -220,6 +249,10 @@ const PANEL = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta 
 <header><h1>Quiniela al Toque · Panel</h1><form method="post" action="/admin/salir"><button class="sec" type="submit">Salir</button></form></header>
 <main>
 <p id="estado" class="nota">Cargando…</p>
+<h2>Resultados de hoy</h2>
+<div class="caja" id="hoy">Cargando…</div>
+<div class="caja" id="alertas-tel" style="margin-top:10px"></div>
+
 <h2>Personas que usan la app</h2>
 <div class="grilla" id="uso"></div>
 <p class="nota">Un "teléfono" es una instalación o navegador (anónimo, sin datos personales). Activo = abrió la app ese día o en ese período. Se mide desde el 30/10/2026.</p>
@@ -297,6 +330,29 @@ $('nueva').addEventListener('submit', async (e) => {
   $('msj').textContent = x.ok ? 'Listo: agencia "' + datos.nombre + '" (código ' + x.codigo + ').' : (x.error || 'No se pudo guardar');
   if (x.ok) { e.target.reset(); cargar(); }
 });
+const NQ = { ciudad: 'Ciudad', provincia: 'Provincia', santafe: 'Santa Fe', cordoba: 'Córdoba', entrerios: 'Entre Ríos', mendoza: 'Mendoza', montevideo: 'Montevideo' };
+const telefono = new URLSearchParams(location.search).get('d') || '';
+async function cargarHoy() {
+  const r = await fetch('/admin/api/hoy');
+  if (!r.ok) return;
+  const h = await r.json();
+  $('hoy').innerHTML = '<table><thead><tr><th>Turno</th><th>Llegaron</th><th>Faltan</th></tr></thead><tbody>' + h.turnos.map((t) => {
+    const faltan = t.esperadas.filter((q) => !t.llegaron.includes(q));
+    const cab = t.soloCabeza.length ? ' <small class="nota">(solo cabeza: ' + t.soloCabeza.map((q) => NQ[q] || q).join(', ') + ')</small>' : '';
+    return '<tr><td>' + esc(t.nombre) + ' <small class="nota">' + t.hora + '</small></td><td>' + t.llegaron.length + ' de ' + t.esperadas.length + '</td><td>' + (faltan.length ? faltan.map((q) => NQ[q] || q).join(', ') : '✓') + cab + '</td></tr>';
+  }).join('') + '</tbody></table>' + (h.faltan.length ? '<p class="error">⚠️ Atrasadas: ' + h.faltan.map((f) => f.turno + ' (' + f.quinielas.map((q) => NQ[q] || q).join(', ') + ', ' + f.minutos + ' min)').join(' · ') + '</p>' : '<p class="nota">Sin atrasos.</p>');
+  const a = h.alertas;
+  $('alertas-tel').innerHTML = '<b>Alertas de fallas en tu celular</b><p class="nota">' + a.marcados + ' teléfono(s) marcado(s), ' + a.con_avisos + ' con avisos activados. Si a los 40 min de un sorteo falta una quiniela, te llega un aviso.</p>'
+    + (telefono ? '<button id="marcar-tel" type="button">Recibir alertas en este teléfono</button>' : '<p class="nota">Para marcar tu celular: en la app tocá 10 veces "Quiniela al Toque" y apretá el botón que aparece acá. El celular tiene que tener los avisos activados.</p>');
+  const b = $('marcar-tel');
+  if (b) b.addEventListener('click', async () => {
+    const y = await (await fetch('/admin/api/alertas-telefono', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dispositivo: telefono }) })).json();
+    b.replaceWith(Object.assign(document.createElement('p'), { textContent: y.ok ? 'Listo: este teléfono va a recibir las alertas (si tiene los avisos activados).' : (y.error || 'No se pudo') }));
+    cargarHoy();
+  });
+}
+cargarHoy().catch(() => {});
+setInterval(() => cargarHoy().catch(() => {}), 60000);
 cargar().catch((e) => { $('estado').textContent = 'No se pudo cargar: ' + e.message; });
 setInterval(() => cargar().catch(() => {}), 60000);
 </script></body></html>`;

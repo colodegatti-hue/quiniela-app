@@ -16,7 +16,7 @@ before(async () => {
   const esquema = await readFile(new URL('../sql/esquema.sql', import.meta.url), 'utf8');
   const c = new pg.Client({ connectionString: URL_PRUEBA });
   await c.connect();
-  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones, compras, licencias, arrepentimientos, cabezas, dispositivos, actividad, agencias, visitas, admin_registro cascade');
+  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones, compras, licencias, arrepentimientos, cabezas, dispositivos, actividad, agencias, visitas, admin_registro, admin_dispositivos, alertas_admin cascade');
   await c.query(esquema);
   await c.query(esquema); // se puede correr dos veces
   await c.end();
@@ -210,13 +210,14 @@ test('Base real: compra Pro aprobada una sola vez, renovación y teléfonos', op
 });
 
 test('Base real: suscripción con código Pro vigente', opciones, async () => {
-  await db.guardarSuscripcion({ endpoint: 'https://push/pro', p256dh: 'p', auth: 'a', preferencias: {}, jugadas: [], codigo: '012345' });
-  await db.guardarSuscripcion({ endpoint: 'https://push/gratis', p256dh: 'p', auth: 'a', preferencias: {}, jugadas: [] });
+  // El teléfono 'a' está vinculado al código 012345 (ver la prueba de la compra)
+  await db.guardarSuscripcion({ endpoint: 'https://push/pro', p256dh: 'p', auth: 'a', dispositivo: 'a', preferencias: {}, jugadas: [], codigo: '012345' });
+  await db.guardarSuscripcion({ endpoint: 'https://push/gratis', p256dh: 'p', auth: 'a', dispositivo: 'zz', preferencias: {}, jugadas: [] });
   const lista = await db.listarSuscripciones();
   assert.equal(lista.find((x) => x.endpoint === 'https://push/pro').pro, true);
   assert.equal(lista.find((x) => x.endpoint === 'https://push/gratis').pro, false);
   await db.actualizarSuscripcion('https://push/gratis', { codigo: '012345' });
-  assert.equal((await db.buscarSuscripcion('https://push/gratis')).pro, true);
+  assert.equal((await db.buscarSuscripcion('https://push/gratis')).pro, false); // código ajeno: no le da Pro
 });
 
 test('Base real: pedidos de arrepentimiento', opciones, async () => {
@@ -285,4 +286,26 @@ test('Base real: recuperar el Pro como mucho una vez cada 2 días', opciones, as
   assert.equal(await db.marcarRecuperacion('765400', ahora), true);
   assert.equal(await db.marcarRecuperacion('765400', new Date(ahora.getTime() + 864e5)), false);
   assert.equal(await db.marcarRecuperacion('765400', new Date(ahora.getTime() + 3 * 864e5)), true);
+});
+
+test('Base real: alertas de fallas y teléfonos de administrador', opciones, async () => {
+  assert.equal(await db.alertaNueva('2026-10-30|primera|mendoza'), true);
+  assert.equal(await db.alertaNueva('2026-10-30|primera|mendoza'), false);
+  const d = '33333333-3333-4333-8333-333333333333';
+  await db.marcarDispositivoAdmin(d);
+  await db.marcarDispositivoAdmin(d);
+  await db.guardarSuscripcion({ endpoint: 'https://push.example/admin', p256dh: 'p', auth: 'a', dispositivo: d, preferencias: {}, jugadas: [], codigo: null });
+  assert.deepEqual((await db.listarSuscripcionesAdmin()).map((s) => s.endpoint), ['https://push.example/admin']);
+  assert.deepEqual(await db.contarDispositivosAdmin(), { marcados: 1, con_avisos: 1 });
+});
+
+test('Base real: Pro de las alertas solo si el teléfono está vinculado al código', opciones, async () => {
+  await db.crearLicenciaCortesia('765111', 30);
+  const tel = '44444444-4444-4444-8444-444444444444';
+  await db.guardarSuscripcion({ endpoint: 'https://push.example/ajeno', p256dh: 'p', auth: 'a', dispositivo: tel, preferencias: {}, jugadas: [], codigo: '765111' });
+  assert.equal((await db.buscarSuscripcion('https://push.example/ajeno')).pro, false);
+  assert.equal(await db.esProDispositivo('765111', tel), false);
+  await db.vincularDispositivo('765111', tel, 1);
+  assert.equal((await db.buscarSuscripcion('https://push.example/ajeno')).pro, true);
+  assert.equal(await db.esProDispositivo('765111', tel), true);
 });

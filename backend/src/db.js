@@ -321,7 +321,7 @@ export async function borrarSuscripcion(endpoint) {
 // pro = el teléfono tiene un código Pro vigente
 const CONSULTA_SUSCRIPCIONES = `
   select s.endpoint, s.p256dh, s.auth, s.preferencias, s.jugadas,
-         coalesce(l.vence > now(), false) as pro
+         coalesce(l.vence > now() and s.dispositivo = any(l.dispositivos), false) as pro
   from suscripciones s left join licencias l on l.codigo = s.codigo`;
 
 export async function listarSuscripciones() {
@@ -568,5 +568,37 @@ export async function marcarRecuperacion(codigo, ahora = new Date()) {
       where codigo = $1 and (recuperada_en is null or recuperada_en < $2::timestamptz - interval '2 days')`,
     [codigo, ahora],
   );
+  return r.rowCount > 0;
+}
+
+// ---- Alertas de fallas para el administrador -----------------------------
+export async function marcarDispositivoAdmin(dispositivo) {
+  await db().query('insert into admin_dispositivos (dispositivo) values ($1) on conflict do nothing', [dispositivo]);
+}
+
+export async function listarSuscripcionesAdmin() {
+  const r = await db().query(
+    `select s.endpoint, s.p256dh, s.auth from suscripciones s
+      join admin_dispositivos a on a.dispositivo = s.dispositivo`);
+  return r.rows;
+}
+
+export async function contarDispositivosAdmin() {
+  const r = await db().query(
+    `select (select count(*) from admin_dispositivos)::int as marcados,
+            (select count(*) from suscripciones s join admin_dispositivos a on a.dispositivo = s.dispositivo)::int as con_avisos`);
+  return r.rows[0];
+}
+
+// true si es la primera vez que se avisa esa falta
+export async function alertaNueva(clave) {
+  const r = await db().query('insert into alertas_admin (clave) values ($1) on conflict do nothing', [clave]);
+  return r.rowCount > 0;
+}
+
+// Licencia vigente y vinculada a ese teléfono (para contenido Pro en el servidor)
+export async function esProDispositivo(codigo, dispositivo) {
+  const r = await db().query(
+    'select 1 from licencias where codigo = $1 and vence > now() and $2 = any(dispositivos)', [codigo, dispositivo]);
   return r.rowCount > 0;
 }

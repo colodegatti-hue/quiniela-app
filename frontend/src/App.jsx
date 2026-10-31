@@ -12,6 +12,7 @@ import { usePro, tomarRetorno, revisarPro } from './util/pro.js';
 import { capturarOrigen, avisarUso } from './util/medicion.js';
 import { detectarPlay, contarApertura } from './util/plataforma.js';
 import { API } from './util/datos.js';
+import { idDispositivo } from './util/jugadas.js';
 import Sugerencias from './componentes/Sugerencias.jsx';
 import BotonAvisos from './componentes/BotonAvisos.jsx';
 
@@ -69,7 +70,7 @@ export default function App() {
     const n = ahora - toques.hora < 1500 ? toques.n + 1 : 1;
     if (n >= 10) {
       setToques({ n: 0, hora: 0 });
-      window.location.href = `${API}/admin`;
+      window.location.href = `${API}/admin?d=${idDispositivo() ?? ''}`;
       return;
     }
     setToques({ n, hora: ahora });
