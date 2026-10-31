@@ -3,6 +3,7 @@ import Extracto from '../componentes/Extracto.jsx';
 import TablaDelDia from '../componentes/TablaDelDia.jsx';
 import { PRINCIPALES, TURNOS, obtenerResultados, extractoDe, sortea } from '../util/datos.js';
 import ElegirQuinielas, { useQuinielasVisibles } from '../componentes/ElegirQuinielas.jsx';
+import CompartirApp from '../componentes/CompartirApp.jsx';
 import { hoy, sumarDias, diaSemana, fechaLarga, yaEsLaHora, ahoraArgentina, minutosDelDia } from '../util/fechas.js';
 import { cargarJugadas } from '../util/jugadas.js';
 import { UBICACIONES } from '../../../shared/premios.js';
@@ -249,6 +250,7 @@ export default function Resultados() {
         </>
       )}
       {mensaje && <p className="mensaje" role="status">{mensaje}</p>}
+      <CompartirApp />
     </section>
   );
 }

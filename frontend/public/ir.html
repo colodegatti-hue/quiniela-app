@@ -27,11 +27,12 @@
     var esIOS = /iphone|ipad|ipod/i.test(ua);
     var params = new URLSearchParams(location.search);
     var ag = (params.get('ag') || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30);
-    var app = '/' + (ag ? '?ag=' + ag : '');
+    var inv = params.has('inv');
+    var app = '/' + (ag ? '?ag=' + ag : inv ? '?inv=1' : '');
     var c = document.getElementById('contenido');
 
     if (esAndroid && PLAY_PUBLICADA) {
-      var ref = ag ? '&referrer=' + encodeURIComponent('utm_source=agencia&utm_campaign=' + ag) : '';
+      var ref = ag ? '&referrer=' + encodeURIComponent('utm_source=agencia&utm_campaign=' + ag) : inv ? '&referrer=' + encodeURIComponent('utm_source=invitacion') : '';
       location.replace('https://play.google.com/store/apps/details?id=' + PAQUETE + ref);
       return;
     }

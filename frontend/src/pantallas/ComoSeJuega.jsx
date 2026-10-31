@@ -1,5 +1,6 @@
 // Contenido editorial: qué es la quiniela, cómo se juega, cuánto paga y cómo se cobra.
 // Los montos de los ejemplos se calculan con las mismas reglas que usa la app.
+import CompartirApp from '../componentes/CompartirApp.jsx';
 import { TABLAS_DE_PAGO, evaluarDirecta, evaluarRedoblona } from '../../../shared/premios.js';
 import { TURNOS } from '../util/datos.js';
 import { formatoPesos } from '../util/fechas.js';
@@ -18,6 +19,7 @@ export default function ComoSeJuega() {
   return (
     <section className="pantalla texto">
       <h2>Cómo se juega a la quiniela</h2>
+      <CompartirApp compacto />
 
       <h3>Qué es</h3>
       <p>
