@@ -481,3 +481,26 @@ test('Provincias: cabeza antes que la Ciudad y después los 20 números', async 
   await ciclo.tick(new Date(Date.UTC(2026, 9, 19, 17, 11)));
   assert.equal(pedidas.filter((q) => q === 'tucuman').length, 1); // no la vuelve a pedir
 });
+
+test('Poceada y Quiniela Plus: se buscan después de la Nocturna, cada 3 minutos hasta tenerlos', async () => {
+  const base = baseEnMemoria();
+  base.sorteos.set('2026-10-19|previa', { numero: 53052, fuente: 'lotba', extractos: [] });
+  const guardados = [];
+  base.guardarPozo = async (j) => { guardados.push(j); return 'nuevo'; };
+  base.pozosDeFecha = async () => ({});
+  const f = lotbaDeAPoco(53053, '2026-10-19', 'primera').fuentes();
+  let llamadas = 0;
+  f.buscarPozos = async (fecha) => { llamadas++; return llamadas === 1 ? {} : { poceada: { fecha, numeros: [] }, quinielaplus: { fecha, numeros: [] }, superplus: { fecha, numeros: [] } }; };
+  const ciclo = crearCiclo({ base, fuentes: f });
+  const a21 = (min) => new Date(Date.UTC(2026, 9, 20, 0, min)); // 21:mm del lunes 19/10 en Argentina
+  await ciclo.tick(a21(1)); // antes de los 3 minutos: no busca
+  assert.equal(llamadas, 0);
+  await ciclo.tick(a21(4));
+  assert.equal(llamadas, 1);
+  await ciclo.tick(a21(5)); // espera 3 minutos
+  assert.equal(llamadas, 1);
+  const r = await ciclo.tick(a21(8));
+  assert.deepEqual(r.pozos, ['poceada', 'quinielaplus', 'superplus']);
+  await ciclo.tick(a21(12)); // ya están: recién en una hora
+  assert.equal(llamadas, 2);
+});

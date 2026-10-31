@@ -16,7 +16,7 @@ before(async () => {
   const esquema = await readFile(new URL('../sql/esquema.sql', import.meta.url), 'utf8');
   const c = new pg.Client({ connectionString: URL_PRUEBA });
   await c.connect();
-  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones, compras, licencias, arrepentimientos, cabezas, dispositivos, actividad, agencias, visitas, admin_registro, admin_dispositivos, alertas_admin cascade');
+  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones, compras, licencias, arrepentimientos, cabezas, dispositivos, actividad, agencias, visitas, admin_registro, admin_dispositivos, alertas_admin, pozos cascade');
   await c.query(esquema);
   await c.query(esquema); // se puede correr dos veces
   await c.end();
@@ -316,4 +316,14 @@ test('Base real: días de provincias que faltan', opciones, async () => {
   assert.deepEqual(r.map((x) => x.fecha), ['2026-10-12', '2026-10-10']);
   await db.agregarExtracto('2026-10-12', 'matutina', { quiniela: 'tucuman', numeros: MATUTINA_53009.ciudad, letras: null }, 'quinieleando');
   assert.deepEqual((await db.provinciasFaltantes('2026-10-10', '2026-10-12', ['tucuman'])).map((x) => x.fecha), ['2026-10-10']);
+});
+
+test('Base real: Poceada y Quiniela Plus', opciones, async () => {
+  const p = { fecha: '2026-10-30', sorteo: 9759, numeros: Array.from({ length: 20 }, (_, i) => String(i * 4).padStart(2, '0')), categorias: [{ cat: 1, ganadores: 0, premio: 630028175 }] };
+  assert.equal(await db.guardarPozo('poceada', p), 'nuevo');
+  assert.equal(await db.guardarPozo('poceada', { ...p, categorias: [{ cat: 1, ganadores: 1, premio: 630028175 }] }), 'actualizado');
+  const r = await db.pozosDeFecha('2026-10-30');
+  assert.equal(r.poceada.sorteo, 9759);
+  assert.equal(r.poceada.categorias[0].ganadores, 1);
+  assert.ok((await db.fechasConPozo('poceada', '2026-10-01')).has('2026-10-30'));
 });

@@ -163,3 +163,14 @@ create table if not exists alertas_admin (
   clave text primary key,
   creada timestamptz not null default now()
 );
+
+-- Poceada de la Ciudad, Quiniela Plus y Super Plus (20 números de 2 cifras por sorteo)
+create table if not exists pozos (
+  juego text not null check (juego in ('poceada','quinielaplus','superplus')),
+  fecha date not null,
+  sorteo integer,
+  numeros text[] not null check (array_length(numeros, 1) = 20),
+  categorias jsonb not null default '[]'::jsonb,
+  encontrado_en timestamptz not null default now(),
+  primary key (juego, fecha)
+);

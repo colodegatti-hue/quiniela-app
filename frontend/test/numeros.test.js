@@ -55,3 +55,9 @@ test('Poda de resultados guardados de más de 14 días', async () => {
   assert.equal(podarMemoria('2026-10-31', almacen), 1);
   assert.deepEqual([...m.keys()], ['quiniela.resultados.2026-10-20', 'quiniela.pro.v1']);
 });
+
+test('Boleta de Poceada/Plus: lee números, sin repetir, hasta 15', async () => {
+  const { leerBoleta } = await import('../src/util/datos.js');
+  assert.deepEqual(leerBoleta('5 12, 27-5 99'), ['05', '12', '27', '99']);
+  assert.equal(leerBoleta(Array.from({ length: 20 }, (_, i) => i).join(' ')).length, 15);
+});

@@ -14,7 +14,7 @@ import express from 'express';
 import {
   conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero, guardarSorteo, estadisticas,
   guardarSuscripcion, actualizarSuscripcion, borrarSuscripcion, crearArrepentimiento, listarArrepentimientos,
-  registrarUso, esProDispositivo, alertaNueva,
+  registrarUso, esProDispositivo, alertaNueva, pozosDeFecha,
 } from './db.js';
 import { crearVigilancia } from './vigilancia.js';
 import { montarAdmin } from './admin.js';
@@ -207,6 +207,19 @@ setInterval(() => pingsPorIp.clear(), 3600000).unref();
 
 // ---- Panel privado
 montarAdmin(app, { estadoCiclo: () => ciclo.verEstado() });
+
+// Poceada de la Ciudad, Quiniela Plus y Super Plus de un día
+app.get('/api/pozos', async (req, res) => {
+  const fecha = req.query.fecha || horaArgentina().fecha;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return res.status(400).json({ error: 'Fecha inválida (usar AAAA-MM-DD)' });
+  try {
+    res.set('Cache-Control', 'public, max-age=120');
+    res.json({ fecha, juegos: await pozosDeFecha(fecha) });
+  } catch (e) {
+    console.error('[pozos] error:', e.message);
+    res.status(503).json({ error: 'No se pudieron leer los pozos' });
+  }
+});
 
 // Resultados de un día. Sin fecha = hoy. Formato de fecha: AAAA-MM-DD
 app.get('/api/resultados', async (req, res) => {

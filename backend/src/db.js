@@ -622,3 +622,24 @@ export async function esDispositivoAdmin(dispositivo) {
   const r = await db().query('select 1 from admin_dispositivos where dispositivo = $1', [dispositivo]);
   return r.rowCount > 0;
 }
+
+// ---- Poceada y Quiniela Plus ----------------------------------------------
+export async function guardarPozo(juego, p) {
+  const r = await db().query(
+    `insert into pozos (juego, fecha, sorteo, numeros, categorias) values ($1, $2, $3, $4, $5)
+     on conflict (juego, fecha) do update set categorias = excluded.categorias, sorteo = coalesce(excluded.sorteo, pozos.sorteo)
+     returning (xmax = 0) as nuevo`,
+    [juego, p.fecha, p.sorteo, p.numeros, JSON.stringify(p.categorias ?? [])],
+  );
+  return r.rows[0].nuevo ? 'nuevo' : 'actualizado';
+}
+
+export async function pozosDeFecha(fecha) {
+  const r = await db().query('select juego, sorteo, numeros, categorias from pozos where fecha = $1', [fecha]);
+  return Object.fromEntries(r.rows.map((x) => [x.juego, { sorteo: x.sorteo, numeros: x.numeros, categorias: x.categorias }]));
+}
+
+export async function fechasConPozo(juego, desde) {
+  const r = await db().query("select to_char(fecha, 'YYYY-MM-DD') as f from pozos where juego = $1 and fecha >= $2", [juego, desde]);
+  return new Set(r.rows.map((x) => x.f));
+}
