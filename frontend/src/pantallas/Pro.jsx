@@ -162,6 +162,10 @@ export default function Pro() {
 
       {!datos && <IngresarCodigo />}
 
+      {play && !datos && (
+        <p className="nota">¿Todavía no tenés código? Lo conseguís en nuestra web, quinielaaltoque.app.</p>
+      )}
+
       {datos && (
         <p className="nota">
           {olvidar ? (
