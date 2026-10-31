@@ -267,3 +267,14 @@ test('Base real: medición de uso, agencias y resumen del panel', opciones, asyn
   await db.anotarAdmin('entrada', null, '1.2.3.4');
   assert.equal((await db.registroAdmin())[0].accion, 'entrada');
 });
+
+test('Base real: buscar y liberar un código Pro desde el panel', opciones, async () => {
+  await db.crearLicenciaCortesia('765432', 30);
+  assert.equal(await db.vincularDispositivo('765432', 'tel-1', 1), true);
+  assert.equal(await db.vincularDispositivo('765432', 'tel-2', 1), false);
+  assert.equal((await db.licenciaAdmin('765432')).telefonos, 1);
+  assert.equal(await db.liberarLicencia('765432'), true);
+  assert.equal(await db.vincularDispositivo('765432', 'tel-2', 1), true);
+  assert.equal(await db.licenciaAdmin('000001'), null);
+  assert.equal(await db.liberarLicencia('000001'), false);
+});

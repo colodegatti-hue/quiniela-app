@@ -39,7 +39,7 @@ export default function Legal() {
         <li>
           <strong>Si comprás Pro:</strong> el pago lo procesa Mercado Pago. Nosotros no vemos ni guardamos los datos de
           tu tarjeta o cuenta: solo el número de operación, el plan, el monto y el código de 6 números que te damos.
-          Para activar el código en un teléfono guardamos el identificador anónimo de ese teléfono (hasta 3 por código).
+          Para activar el código guardamos el identificador anónimo del teléfono donde se usa (un teléfono por código).
         </li>
         <li>
           <strong>Datos técnicos:</strong> como cualquier sitio, el servidor recibe la dirección IP y el tipo de
@@ -77,7 +77,7 @@ export default function Legal() {
         </li>
         <li>
           <strong>Versión Pro.</strong> Es un pago único por 1 mes o 1 año, sin débito automático. El código sirve en
-          hasta 3 teléfonos. Si el pago se aprobó y no se activó tu código, o si tenés cualquier problema con la compra,
+          un teléfono (si cambiás de celular, escribinos y lo pasamos al nuevo). Si el pago se aprobó y no se activó tu código, o si tenés cualquier problema con la compra,
           {CONTACTO ? <> escribinos a <strong className="seleccionable">{CONTACTO}</strong> y</> : null} lo
           resolvemos. Podés arrepentirte de la compra dentro de los 10 días corridos, como indica la ley de defensa del
           consumidor, desde el <a href="#/arrepentimiento">botón de arrepentimiento</a>.

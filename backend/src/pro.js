@@ -5,13 +5,13 @@
 // 2. La persona paga y vuelve a la app (o Mercado Pago avisa al servidor).
 // 3. confirmar() / procesarAviso(): si el pago está aprobado y el monto es
 //    correcto, se activa (o se extiende) el código. Se aprueba UNA sola vez.
-// 4. verificar(): el teléfono consulta su código (hasta 3 teléfonos por código).
+// 4. verificar(): el teléfono consulta su código (un teléfono por código).
 // =====================================================================
 import { randomInt, randomUUID } from 'node:crypto';
 import * as baseReal from './db.js';
 import * as mpReal from './mercadopago.js';
 
-export const MAX_DISPOSITIVOS = 3;
+export const MAX_DISPOSITIVOS = 1; // un teléfono por código (se libera desde el panel si cambia de celular)
 
 export function planes() {
   return {
@@ -112,7 +112,7 @@ export function crearPro(opciones = {}) {
     const l = await base.buscarLicencia(codigo);
     if (!l) return { activo: false, error: 'Ese código no existe' };
     if (dispositivo && !(await base.vincularDispositivo(codigo, String(dispositivo).slice(0, 64), MAX_DISPOSITIVOS))) {
-      return { activo: false, error: `Ese código ya se usa en ${MAX_DISPOSITIVOS} teléfonos` };
+      return { activo: false, error: 'Ese código ya está activo en otro teléfono. Si cambiaste de celular, escribinos a coloapps.soporte@gmail.com y lo pasamos al nuevo.' };
     }
     return respuestaLicencia(l, ahora);
   }

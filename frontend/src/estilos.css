@@ -628,3 +628,17 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 @media (prefers-color-scheme: dark) { .marca-toque { color: #ffe27a; } }
 
 .campo textarea { width: 100%; border: 1px solid var(--linea); border-radius: 10px; background: var(--fondo); padding: 0.6rem 0.75rem; font: inherit; color: inherit; resize: vertical; }
+
+/* ---- Carteles de arriba (avisos, calificar) ---- */
+.cartel {
+  margin: 0.8rem 0 0;
+  padding: 0.9rem 1rem;
+  background: var(--superficie);
+  border: 2px solid var(--verde);
+  border-radius: var(--radio);
+}
+.cartel p { margin: 0 0 0.6rem; }
+.cartel-titulo { font-weight: 600; font-size: 1.05rem; }
+.cartel-botones { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.cartel-botones .boton { text-decoration: none; }
+.marca { cursor: default; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
