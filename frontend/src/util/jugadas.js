@@ -2,7 +2,7 @@
 // jugadas.js — Guardar jugadas en el teléfono y controlarlas
 // Usa las reglas de premios compartidas con el servidor (shared/premios.js)
 // =====================================================================
-import { evaluarConLoQueHay, UBICACIONES } from '../../../shared/premios.js';
+import { evaluarGuardada, UBICACIONES } from '../../../shared/premios.js';
 import { extractoDe, turnoPorId, TURNOS, QUINIELAS, sortea } from './datos.js';
 import { yaEsLaHora } from './fechas.js';
 
@@ -43,12 +43,14 @@ export function idDispositivo() {
   }
 }
 
-export function nuevaJugada({ numero, ubicacion, quinielas, turnos, fecha, monto }) {
+export function nuevaJugada({ tipo = 'directa', numero, ubicacion, numero2, ubicacion2, quinielas, turnos, fecha, monto }) {
+  const redoblona = tipo === 'redoblona';
   return {
     id: crypto.randomUUID(),
-    tipo: 'directa',
+    tipo: redoblona ? 'redoblona' : 'directa',
     numero: String(numero),
     ubicacion,
+    ...(redoblona ? { numero2: String(numero2), ubicacion2 } : {}),
     quinielas,
     turnos,
     fecha,
@@ -58,8 +60,12 @@ export function nuevaJugada({ numero, ubicacion, quinielas, turnos, fecha, monto
 }
 
 // Valida lo que cargó la persona. Devuelve un texto de error o null.
-export function validarJugada({ numero, quinielas, turnos, monto }) {
-  if (!/^\d{1,4}$/.test(numero)) return 'El número tiene que tener de 1 a 4 cifras.';
+export function validarJugada({ tipo, numero, numero2, ubicacion, ubicacion2, quinielas, turnos, monto }) {
+  if (tipo === 'redoblona') {
+    if (!/^\d{2}$/.test(numero) || !/^\d{2}$/.test(numero2 ?? '')) return 'En la redoblona los dos números tienen que tener 2 cifras.';
+    if (ubicacion === 'a_los_20') return 'En la redoblona el primer número va a la cabeza, a los 5 o a los 10.';
+    if (ubicacion2 === 'cabeza') return 'En la redoblona el segundo número va a los 5, a los 10 o a los 20.';
+  } else if (!/^\d{1,4}$/.test(numero)) return 'El número tiene que tener de 1 a 4 cifras.';
   if (!quinielas.length) return 'Elegí al menos una quiniela.';
   if (!turnos.length) return 'Elegí al menos un turno.';
   if (monto !== '' && monto !== null && !(Number(monto) > 0)) return 'El monto tiene que ser mayor a cero, o dejalo vacío.';
@@ -70,7 +76,6 @@ export function validarJugada({ numero, quinielas, turnos, monto }) {
 // Devuelve una fila por cada quiniela y turno:
 // { turno, quiniela, estado: 'gano' | 'no' | 'falta' | 'demora', aciertos, premio }
 export function controlarJugada(jugada, resultados, instante = new Date()) {
-  const { desde, hasta } = UBICACIONES[jugada.ubicacion];
   const monto = jugada.monto || 1; // sin monto: se calcula "por cada $1"
   const filas = [];
   // Siempre en el orden del día y de las quinielas, no en el que se tocaron
@@ -85,12 +90,13 @@ export function controlarJugada(jugada, resultados, instante = new Date()) {
         filas.push({ turno, quiniela, estado: yaEsLaHora(jugada.fecha, hora, instante) ? 'demora' : 'falta' });
         continue;
       }
-      const { estado, resultado: r } = evaluarConLoQueHay({ numero: jugada.numero, desde, hasta, monto }, extracto);
+      const { estado, resultado: r } = evaluarGuardada({ ...jugada, monto }, extracto);
       if (estado === 'pendiente') { // ya está la cabeza pero faltan números de su ubicación
         filas.push({ turno, quiniela, estado: 'demora' });
         continue;
       }
-      filas.push({ turno, quiniela, estado: r.gano ? 'gano' : 'no', aciertos: r.aciertos, premio: jugada.monto ? r.premio : null, veces: r.premio / monto });
+      const aciertos = r.aciertos ?? [...(r.aciertos1 ?? []), ...(r.aciertos2 ?? [])];
+      filas.push({ turno, quiniela, estado: r.gano ? 'gano' : 'no', aciertos, premio: jugada.monto ? r.premio : null, veces: r.premio / monto });
     }
   }
   return filas;

@@ -237,3 +237,31 @@ export function evaluarConLoQueHay(jugada, extracto, tabla = TABLA_POR_DEFECTO) 
   const faltan = extracto.slice(desde - 1, hasta).some((n) => !/^\d{4}$/.test(String(n)));
   return { estado: faltan ? 'pendiente' : 'no', resultado: r };
 }
+
+// ---------------------------------------------------------------------
+// Jugada guardada en la app (directa o redoblona) contra un extracto que
+// puede estar incompleto. Devuelve { estado: 'gano'|'no'|'pendiente', resultado }.
+// jugada = { tipo, numero, ubicacion, numero2, ubicacion2, monto }
+// ---------------------------------------------------------------------
+export function evaluarGuardada(jugada, extracto, tabla = TABLA_POR_DEFECTO) {
+  const u1 = UBICACIONES[jugada.ubicacion] ?? UBICACIONES.cabeza;
+  const monto = Number(jugada.monto) || 1;
+  if (jugada.tipo !== 'redoblona') {
+    return evaluarConLoQueHay({ numero: String(jugada.numero), desde: u1.desde, hasta: u1.hasta, monto }, extracto, tabla);
+  }
+  const u2 = UBICACIONES[jugada.ubicacion2] ?? UBICACIONES.a_los_5;
+  const datos = { numero1: String(jugada.numero), desde1: u1.desde, hasta1: u1.hasta, numero2: String(jugada.numero2), desde2: u2.desde, hasta2: u2.hasta, monto };
+  if (!esParcial(extracto)) {
+    const r = evaluarRedoblona(datos, extracto, tabla);
+    return { estado: r.gano ? 'gano' : 'no', resultado: r };
+  }
+  // Extracto incompleto: si con lo que hay ya no puede ganar en la 1.ª apuesta, perdió; si no, espera
+  const hasta = Math.max(u1.hasta, u2.hasta);
+  const faltan = extracto.slice(0, hasta).some((n) => !/^\d{4}$/.test(String(n)));
+  if (!faltan) {
+    const completo = extracto.map((n) => (/^\d{4}$/.test(String(n)) ? String(n) : '0000'));
+    const r = evaluarRedoblona(datos, completo, tabla);
+    return { estado: r.gano ? 'gano' : 'no', resultado: r };
+  }
+  return { estado: 'pendiente', resultado: null };
+}

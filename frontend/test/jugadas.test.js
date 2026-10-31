@@ -80,3 +80,14 @@ test('Con solo la cabeza: a la cabeza ya se sabe, a los 20 queda esperando', () 
   const a20 = nuevaJugada({ numero: '12', ubicacion: 'a_los_20', quinielas: ['entrerios'], turnos: ['matutina'], fecha: '2026-10-08', monto: '' });
   assert.equal(controlarJugada(a20, parcial, A_LAS_1730)[0].estado, 'demora');
 });
+
+test('Redoblona: validación y control', () => {
+  assert.match(validarJugada({ tipo: 'redoblona', numero: '7', numero2: '12', ubicacion: 'cabeza', ubicacion2: 'a_los_5', quinielas: ['ciudad'], turnos: ['matutina'], monto: '' }), /2 cifras/);
+  assert.equal(validarJugada({ tipo: 'redoblona', numero: '79', numero2: '92', ubicacion: 'cabeza', ubicacion2: 'a_los_5', quinielas: ['ciudad'], turnos: ['matutina'], monto: '' }), null);
+  // Ciudad Matutina 08/10: 9179 (cabeza) y 4492 (2.º)
+  const j = nuevaJugada({ tipo: 'redoblona', numero: '79', ubicacion: 'cabeza', numero2: '92', ubicacion2: 'a_los_5', quinielas: ['ciudad', 'cordoba'], turnos: ['matutina'], fecha: '2026-10-08', monto: '10' });
+  const filas = controlarJugada(j, RESULTADOS, A_LAS_1730);
+  assert.equal(filas[0].estado, 'gano');
+  assert.ok(filas[0].premio > 0);
+  assert.equal(filas[1].estado, 'no');
+});
