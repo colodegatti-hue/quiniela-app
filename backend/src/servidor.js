@@ -7,6 +7,7 @@
 //   SORTEO_INICIAL       n.º de sorteo desde el que arranca si la base está vacía
 //   ORIGENES_PERMITIDOS  dominios de la app separados por coma (vacío = todos)
 //   ADMIN_CLAVE          clave del panel privado /admin (sin ella el panel queda apagado)
+//   DEPLOY_HOOK_APP      deploy hook del sitio estático (rearma las páginas para Google tras cada sorteo)
 // =====================================================================
 import { buscarCabezasVivi } from './fuentes/vivitusuerte.js';
 import express from 'express';
@@ -62,13 +63,35 @@ const pro = crearPro();
 const cacheEstadisticas = new Map(); // "quiniela|dias|fecha" -> datos (se borra cuando llega un sorteo)
 const IDS_ESTADISTICAS = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios', 'mendoza', 'montevideo', ...IDS_PROVINCIALES];
 
+// Rearma las páginas para Google (sitio estático) cuando se completa un sorteo.
+// Espera 5 minutos para juntar lo que siga llegando y como mucho una vez cada 30 minutos.
+let rearmadoProgramado = null;
+let ultimoRearmado = 0;
+function rearmarPaginas() {
+  const hook = process.env.DEPLOY_HOOK_APP;
+  if (!hook || rearmadoProgramado) return;
+  const espera = Math.max(5 * 60000, ultimoRearmado + 30 * 60000 - Date.now());
+  rearmadoProgramado = setTimeout(async () => {
+    rearmadoProgramado = null;
+    ultimoRearmado = Date.now();
+    try {
+      const r = await fetch(hook, { method: 'POST', signal: AbortSignal.timeout(20000) });
+      console.log(`[páginas] rearmado del sitio pedido: ${r.status}`);
+    } catch (e) {
+      console.error('[páginas] no se pudo pedir el rearmado:', e.message);
+    }
+  }, espera);
+  rearmadoProgramado.unref?.();
+}
+
 const ciclo = crearCiclo({
   alGuardar: (s) => {
     memoria.delete(s.fecha); // llegó un resultado: refrescar
     cacheEstadisticas.clear();
   },
   // Aparecieron quinielas de un sorteo de hoy → avisar a los teléfonos al instante, sin frenar la búsqueda
-  alListo: (s, { nuevas } = {}) => {
+  alListo: (s, { nuevas, completo } = {}) => {
+    if (completo) rearmarPaginas();
     avisos.avisarSorteo(s, { nuevas })
       .then((r) => console.log(`[avisos] ${s.turno} (${s.extractos.length} quinielas, nuevas: ${nuevas?.join(',')}): ${r.enviados} enviados, ${r.fallidos} fallidos`))
       .catch((e) => console.error('[avisos] error:', e.message));
