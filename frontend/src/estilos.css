@@ -678,3 +678,18 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 /* Resultados: el extracto que tocó el usuario se marca un momento */
 .extracto { scroll-margin-top: 1rem; transition: box-shadow 0.4s; }
 .extracto.destacado { box-shadow: 0 0 0 3px var(--marcador); }
+
+/* ---- Poceada y Quiniela Plus ---- */
+.pozo-cabecera { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.pozo-cabecera h3 { margin: 0; }
+.pozo-bolillas { list-style: none; padding: 0; margin: 0.8rem 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.pozo-bolillas li {
+  font-family: var(--numeros); font-weight: 700; font-size: 1.4rem; text-align: center;
+  padding: 0.35rem 0; border-radius: 999px; background: var(--fondo); border: 1px solid var(--linea);
+}
+.pozo-bolillas li.acierto { background: var(--marcador); color: var(--marcador-tinta); border-color: var(--marcador); }
+.pozo-resultado { margin: 0.4rem 0 0.6rem; }
+.pozo-resultado.gano { font-weight: 700; color: var(--exito); }
+.pozo-premios { width: 100%; border-collapse: collapse; font-size: 0.95rem; margin: 0.4rem 0; }
+.pozo-premios th, .pozo-premios td { text-align: left; padding: 0.35rem 0.3rem; border-bottom: 1px solid var(--linea); }
+.pozo-premios th { color: var(--tenue); font-weight: 600; font-size: 0.85rem; }

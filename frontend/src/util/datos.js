@@ -125,3 +125,20 @@ export async function buscarNumero(numero, dias) {
   if (!r.ok) throw new Error(`El servidor respondió ${r.status}`);
   return r.json();
 }
+
+// Poceada de la Ciudad, Quiniela Plus y Super Plus de un día: { fecha, juegos: { poceada: { sorteo, numeros, categorias } } }
+export async function obtenerPozos(fecha) {
+  const r = await fetch(`${API}/api/pozos?fecha=${fecha}`, { signal: AbortSignal.timeout(60000) });
+  if (!r.ok) throw new Error(`El servidor respondió ${r.status}`);
+  return r.json();
+}
+
+// Números de la boleta de Poceada/Plus: "5 12 27..." -> ['05','12','27'] (sin repetir, hasta 15)
+export function leerBoleta(texto) {
+  const r = [];
+  for (const m of String(texto).match(/\d{1,2}/g) ?? []) {
+    const n = m.padStart(2, '0');
+    if (!r.includes(n)) r.push(n);
+  }
+  return r.slice(0, 15);
+}

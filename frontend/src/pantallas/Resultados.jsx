@@ -4,6 +4,7 @@ import TablaDelDia from '../componentes/TablaDelDia.jsx';
 import { PRINCIPALES, TURNOS, obtenerResultados, extractoDe, sortea } from '../util/datos.js';
 import ElegirQuinielas, { useQuinielasVisibles } from '../componentes/ElegirQuinielas.jsx';
 import CompartirApp from '../componentes/CompartirApp.jsx';
+import Pozos from '../componentes/Pozos.jsx';
 import { hoy, sumarDias, diaSemana, fechaLarga, yaEsLaHora, ahoraArgentina, minutosDelDia } from '../util/fechas.js';
 import { cargarJugadas } from '../util/jugadas.js';
 import { UBICACIONES } from '../../../shared/premios.js';
@@ -55,7 +56,8 @@ export default function Resultados() {
   const [vista, setVista] = useState(leerVista);
   function cambiarVista(v) {
     setVista(v);
-    try { localStorage.setItem(CLAVE_VISTA, v); } catch { /* modo privado */ }
+    // La Poceada no queda como vista de arranque: al abrir la app se ven los resultados
+    if (v !== 'pozos') { try { localStorage.setItem(CLAVE_VISTA, v); } catch { /* modo privado */ } }
   }
 
   // Comparte como imagen (con la marca y el enlace); si algo falla, como texto
@@ -174,9 +176,12 @@ export default function Resultados() {
             <div className="segmentado" role="group" aria-label="Cómo ver los resultados">
               <button type="button" aria-pressed={vista === 'dia'} onClick={() => cambiarVista('dia')}>Todo el día</button>
               <button type="button" aria-pressed={vista === 'turno'} onClick={() => cambiarVista('turno')}>Por turno</button>
+              <button type="button" aria-pressed={vista === 'pozos'} onClick={() => cambiarVista('pozos')}>Poceada y Plus</button>
             </div>
             {enVivo.size > 0 && <span className="vivo">EN VIVO</span>}
           </div>
+
+          {vista === 'pozos' && <Pozos fecha={fecha} />}
 
           {vista === 'dia' && datos && !error && (
             <>

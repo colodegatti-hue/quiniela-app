@@ -21,6 +21,7 @@ import { buscarSorteoLotba } from './fuentes/lotba.js';
 import { buscarSorteoQuinieleando, buscarPaginaQuinieleando } from './fuentes/quinieleando.js';
 import { buscarProvincia } from './fuentes/provincia.js';
 import { buscarVivi, buscarCabezasVivi } from './fuentes/vivitusuerte.js';
+import { buscarPozos } from './fuentes/pozos.js';
 
 const MAX_POR_CICLO = 12;      // sorteos oficiales a recuperar por llamada
 const RESPALDO_MIN = 15;       // minutos de espera antes de usar el respaldo
@@ -53,6 +54,7 @@ export function crearCiclo(opciones = {}) {
     buscarProvincia,
     buscarVivi,
     buscarCabezasVivi,
+    buscarPozos,
   };
   const sorteoInicial = opciones.sorteoInicial ?? Number(process.env.SORTEO_INICIAL || 0);
   const alGuardar = opciones.alGuardar ?? (() => {});
@@ -62,6 +64,8 @@ export function crearCiclo(opciones = {}) {
   const historialDesde = opciones.historialDesde ?? Number(process.env.HISTORIAL_DESDE || 0);
   // Desde qué fecha completar las provincias hacia atrás (vacío = no completar)
   const provinciasDesde = opciones.provinciasDesde ?? (process.env.PROVINCIAS_DESDE || '');
+  // Desde qué fecha completar Poceada y Quiniela Plus hacia atrás
+  const pozosDesde = opciones.pozosDesde ?? (process.env.POZOS_DESDE || '');
 
   let estado = null;
   let enCurso = null;
@@ -94,6 +98,15 @@ export function crearCiclo(opciones = {}) {
     estado.provinciasViejas = provinciasDesde && base.provinciasFaltantes && (horarios.IDS_PROVINCIALES ?? []).length
       ? await base.provinciasFaltantes(provinciasDesde, restarUnDia(fecha), horarios.IDS_PROVINCIALES)
       : [];
+    estado.pozosHoy = base.pozosDeFecha ? new Set(Object.keys(await base.pozosDeFecha(fecha))) : new Set();
+    estado.ultimoPozo = 0;
+    estado.pozosViejos = [];
+    if (pozosDesde && base.fechasConPozo) {
+      const hay = await base.fechasConPozo('poceada', pozosDesde);
+      for (let f = restarUnDia(fecha); f >= pozosDesde; f = restarUnDia(f)) {
+        if (new Date(`${f}T12:00:00Z`).getUTCDay() !== 0 && !hay.has(f)) estado.pozosViejos.push(f);
+      }
+    }
     estado.faltantes = historialDesde && base.numerosFaltantes && estado.ultimoNumero
       ? await base.numerosFaltantes(historialDesde, estado.ultimoNumero)
       : [];
@@ -356,6 +369,38 @@ export function crearCiclo(opciones = {}) {
           }
         }
         if (juntas.length) sumarAlDia({ fecha: ar.fecha, turno: t, numero: null, fuente: 'quinieleando', extractos: juntas }, juntas.map((e) => e.quiniela));
+      }
+    }
+
+    // ---- 3f. Poceada de la Ciudad, Quiniela Plus y Super Plus (después de la Nocturna)
+    if (fuentes.buscarPozos && base.guardarPozo && ar.diaSemana !== 0) {
+      const desdeNocturna = minutosDesde('nocturna');
+      const faltan = ['poceada', 'quinielaplus', 'superplus'].some((j) => !estado.pozosHoy.has(j));
+      // Cada 3 minutos hasta tenerlos; después, una vez más a la hora (por los ganadores)
+      const cada = faltan ? 3 * 60000 : 60 * 60000;
+      if (desdeNocturna >= 3 && desdeNocturna <= 180 && ahora - estado.ultimoPozo >= cada) {
+        estado.ultimoPozo = ahora.getTime();
+        try {
+          const p = await fuentes.buscarPozos(ar.fecha);
+          for (const [juego, datos] of Object.entries(p)) {
+            const res = await base.guardarPozo(juego, datos);
+            if (res === 'nuevo') resumen.pozos = [...(resumen.pozos ?? []), juego];
+            estado.pozosHoy.add(juego);
+          }
+        } catch (e) {
+          resumen.errores.push(`pozos: ${e.message}`);
+        }
+      }
+    }
+    // Pozos viejos: un día por llamada
+    if (estado.pozosViejos?.length && fuentes.buscarPozos && base.guardarPozo) {
+      const f = estado.pozosViejos.shift();
+      try {
+        const p = await fuentes.buscarPozos(f);
+        for (const [juego, datos] of Object.entries(p)) await base.guardarPozo(juego, datos);
+        resumen.pozosViejos = { [f]: Object.keys(p).length, quedan: estado.pozosViejos.length };
+      } catch (e) {
+        resumen.errores.push(`pozos viejos (${f}): ${e.message}`);
       }
     }
 
