@@ -1,6 +1,7 @@
 // Privacidad, términos de uso y juego responsable.
 // Escrito para lo que la app hace HOY: si se suman publicidad o cuentas, actualizar.
-const ACTUALIZADO = '24 de octubre de 2026';
+const ACTUALIZADO = '31 de octubre de 2026';
+// Si cambiás este texto, actualizá también public/privacidad.html (la que se enlaza en Google Play)
 // Mail de contacto del responsable (vacío = todavía no definido)
 export const CONTACTO = 'coloapps.soporte@gmail.com';
 
@@ -47,7 +48,7 @@ export default function Legal() {
           con nada.
         </li>
         <li>
-          <strong>Publicidad:</strong> en la versión gratuita de la web mostramos anuncios de Google AdSense. Google y sus
+          <strong>Publicidad:</strong> en la versión gratuita mostramos anuncios de Google AdSense. Google y sus
           socios pueden usar cookies para mostrar anuncios según tus visitas a este y otros sitios. Podés desactivar los
           anuncios personalizados en <span className="seleccionable">adssettings.google.com</span>. Los usuarios Pro no ven
           publicidad.
@@ -56,8 +57,7 @@ export default function Legal() {
       <p>
         No vendemos ni compartimos tus datos con terceros, salvo los proveedores que hacen funcionar la app
         (alojamiento del servidor y la base de datos, el servicio de notificaciones de tu navegador y Mercado Pago),
-        y solo para eso. Hoy la app no usa publicidad ni herramientas de seguimiento; si eso cambia, lo vamos a avisar
-        en esta página antes.
+        y solo para eso, y Google en el caso de la publicidad, como se explica arriba.
       </p>
       <p>
         Podés pedir que borremos tus datos del servidor desactivando los avisos desde la pantalla Jugadas
@@ -83,7 +83,7 @@ export default function Legal() {
         </li>
         <li>
           <strong>Versión Pro.</strong> Es un pago único por 1 mes o 1 año, sin débito automático. El código sirve en
-          un teléfono (si cambiás de celular, escribinos y lo pasamos al nuevo). Si el pago se aprobó y no se activó tu código, o si tenés cualquier problema con la compra,
+          un teléfono; si cambiás de celular, lo recuperás en la pantalla Pro con el número de operación de Mercado Pago. Si el pago se aprobó y no se activó tu código, o si tenés cualquier problema con la compra,
           {CONTACTO ? <> escribinos a <strong className="seleccionable">{CONTACTO}</strong> y</> : null} lo
           resolvemos. Podés arrepentirte de la compra dentro de los 10 días corridos, como indica la ley de defensa del
           consumidor, desde el <a href="#/arrepentimiento">botón de arrepentimiento</a>.

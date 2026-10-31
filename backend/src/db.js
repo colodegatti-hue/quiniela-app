@@ -560,3 +560,13 @@ export async function liberarLicencia(codigo) {
   const r = await db().query("update licencias set dispositivos = '{}' where codigo = $1", [codigo]);
   return r.rowCount > 0;
 }
+
+// Anota que se recuperó el código (devuelve false si ya se recuperó en los últimos 2 días)
+export async function marcarRecuperacion(codigo, ahora = new Date()) {
+  const r = await db().query(
+    `update licencias set recuperada_en = $2
+      where codigo = $1 and (recuperada_en is null or recuperada_en < $2::timestamptz - interval '2 days')`,
+    [codigo, ahora],
+  );
+  return r.rowCount > 0;
+}

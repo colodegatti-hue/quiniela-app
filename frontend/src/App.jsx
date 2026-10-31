@@ -13,6 +13,7 @@ import { capturarOrigen, avisarUso } from './util/medicion.js';
 import { detectarPlay, contarApertura } from './util/plataforma.js';
 import { API } from './util/datos.js';
 import Sugerencias from './componentes/Sugerencias.jsx';
+import BotonAvisos from './componentes/BotonAvisos.jsx';
 
 const PANTALLAS = {
   resultados: { titulo: 'Resultados', componente: Resultados },
@@ -78,6 +79,7 @@ export default function App() {
     <div className="app">
       <header className="barra">
         <p className="marca" onClick={tocarMarca}>Quiniela <span className="marca-toque">al Toque</span></p>
+        <BotonAvisos />
         <a className={`boton-pro${pro ? ' es-pro' : ''}`} href="#/pro">{pro ? 'PRO' : 'Hacete Pro'}</a>
       </header>
       <main>

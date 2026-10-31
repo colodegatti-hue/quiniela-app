@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instalá Quiniela al Toque</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px;
+    background: #eef2ef; color: #14261e; font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  .tarjeta { background: #fff; border-radius: 18px; padding: 24px 20px; max-width: 420px; width: 100%; text-align: center; border: 2px solid #0e5a3c; }
+  h1 { font-size: 20px; margin: 0 0 12px; } ol { text-align: left; padding-left: 20px; } li { margin-bottom: 8px; }
+  a.boton { display: inline-block; margin-top: 8px; background: #c21d2e; color: #fff; text-decoration: none; font-weight: 700; padding: 12px 20px; border-radius: 10px; }
+  .tenue { color: #5b6d64; }
+</style>
+</head>
+<body>
+<div class="tarjeta" id="contenido"><p class="tenue">Abriendo…</p></div>
+<script>
+  // Página para los QR y enlaces: Android → Google Play (cuando esté publicada); iPhone → cómo instalar; resto → la app.
+  // Conserva ?ag=CODIGO de las agencias para medir de dónde llega la gente.
+  (function () {
+    var PLAY_PUBLICADA = false; // poner true cuando la app esté en Google Play
+    var PAQUETE = 'com.coloapps.quinielaaltoque';
+    var ua = navigator.userAgent || '';
+    var esAndroid = /android/i.test(ua);
+    var esIOS = /iphone|ipad|ipod/i.test(ua);
+    var params = new URLSearchParams(location.search);
+    var ag = (params.get('ag') || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30);
+    var app = '/' + (ag ? '?ag=' + ag : '');
+    var c = document.getElementById('contenido');
+
+    if (esAndroid && PLAY_PUBLICADA) {
+      var ref = ag ? '&referrer=' + encodeURIComponent('utm_source=agencia&utm_campaign=' + ag) : '';
+      location.replace('https://play.google.com/store/apps/details?id=' + PAQUETE + ref);
+      return;
+    }
+    if (esIOS) {
+      c.innerHTML = '<h1>📲 Instalá Quiniela al Toque en tu iPhone</h1>' +
+        '<p>Es gratis y no necesitás cuenta:</p><ol>' +
+        '<li>Abrí la app con el botón de abajo, en <strong>Safari</strong>.</li>' +
+        '<li>Tocá <strong>Compartir</strong> (el cuadrado con la flecha hacia arriba).</li>' +
+        '<li>Elegí <strong>“Agregar a inicio”</strong>. Te queda el ícono como cualquier app.</li></ol>' +
+        '<a class="boton" href="' + app + '">Abrir Quiniela al Toque</a>';
+      return;
+    }
+    location.replace(app);
+  })();
+</script>
+</body>
+</html>

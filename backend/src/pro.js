@@ -112,10 +112,31 @@ export function crearPro(opciones = {}) {
     const l = await base.buscarLicencia(codigo);
     if (!l) return { activo: false, error: 'Ese código no existe' };
     if (dispositivo && !(await base.vincularDispositivo(codigo, String(dispositivo).slice(0, 64), MAX_DISPOSITIVOS))) {
-      return { activo: false, error: 'Ese código ya está activo en otro teléfono. Si cambiaste de celular, escribinos a coloapps.soporte@gmail.com y lo pasamos al nuevo.' };
+      return { activo: false, error: 'Ese código ya está activo en otro teléfono. Si cambiaste de celular, tocá “Recuperar mi Pro” y poné el número de operación de Mercado Pago.' };
     }
     return respuestaLicencia(l, ahora);
   }
 
-  return { comprar, confirmar, procesarAviso, verificar };
+  // Cambió de celular: con el número de operación de Mercado Pago recupera su código
+  // en este teléfono (se libera del anterior). Como mucho una vez cada 2 días por código.
+  async function recuperar(pagoId, dispositivo, ahora = new Date()) {
+    const id = String(pagoId ?? '').replace(/\D/g, '');
+    if (id.length < 6 || id.length > 20) return { activo: false, error: 'El número de operación tiene que ser solo números (lo ves en el comprobante de Mercado Pago).' };
+    if (!/^[0-9a-f-]{36}$/.test(String(dispositivo ?? ''))) return { activo: false, error: 'No pudimos identificar este teléfono.' };
+    let pago = null;
+    try { pago = await mp.obtenerPago(id); } catch { pago = null; }
+    const compra = pago?.external_reference ? await base.buscarCompra(pago.external_reference) : null;
+    if (!compra) return { activo: false, error: 'No encontramos una compra de Quiniela al Toque con ese número de operación.' };
+    let l = compra.estado === 'aprobada' ? await base.buscarLicencia(compra.codigo) : await aprobarSiCorresponde(compra, pago);
+    if (!l) return { activo: false, error: 'Ese pago todavía no está aprobado en Mercado Pago.' };
+    if (!(await base.marcarRecuperacion(compra.codigo, ahora))) {
+      return { activo: false, error: 'Ya recuperaste este Pro hace poco. Podés volver a hacerlo en 2 días, o escribinos a coloapps.soporte@gmail.com.' };
+    }
+    await base.liberarLicencia(compra.codigo);
+    await base.vincularDispositivo(compra.codigo, dispositivo, MAX_DISPOSITIVOS);
+    l = await base.buscarLicencia(compra.codigo);
+    return respuestaLicencia(l, ahora);
+  }
+
+  return { comprar, confirmar, procesarAviso, verificar, recuperar };
 }

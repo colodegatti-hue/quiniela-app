@@ -200,7 +200,7 @@ export default function Jugadas() {
 
       {creando && (
         <Formulario
-          alGuardar={(j) => { guardar([j, ...jugadas]); setCreando(false); }}
+          alGuardar={(j) => { guardar([j, ...jugadas]); setCreando(false); window.dispatchEvent(new Event('quiniela-jugada-guardada')); }}
           alCancelar={() => setCreando(false)}
         />
       )}

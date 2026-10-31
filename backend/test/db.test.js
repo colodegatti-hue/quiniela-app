@@ -278,3 +278,11 @@ test('Base real: buscar y liberar un código Pro desde el panel', opciones, asyn
   assert.equal(await db.licenciaAdmin('000001'), null);
   assert.equal(await db.liberarLicencia('000001'), false);
 });
+
+test('Base real: recuperar el Pro como mucho una vez cada 2 días', opciones, async () => {
+  await db.crearLicenciaCortesia('765400', 30);
+  const ahora = new Date();
+  assert.equal(await db.marcarRecuperacion('765400', ahora), true);
+  assert.equal(await db.marcarRecuperacion('765400', new Date(ahora.getTime() + 864e5)), false);
+  assert.equal(await db.marcarRecuperacion('765400', new Date(ahora.getTime() + 3 * 864e5)), true);
+});

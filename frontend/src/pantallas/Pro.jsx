@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { usePro, obtenerPlanes, comprar, activarCodigo, compraPendiente, confirmarCompra, fechaVence, olvidarCodigo } from '../util/pro.js';
+import { usePro, obtenerPlanes, comprar, activarCodigo, recuperarPro, compraPendiente, confirmarCompra, fechaVence, olvidarCodigo } from '../util/pro.js';
 import { formatoPesos } from '../util/fechas.js';
 import { esPlay } from '../util/plataforma.js';
 
@@ -67,6 +67,40 @@ function IngresarCodigo() {
       <form className="alertas-agregar" onSubmit={enviar}>
         <input className="entrada-codigo" inputMode="numeric" maxLength={6} placeholder="000000" value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ''))} aria-label="Código Pro" />
         <button type="submit" className="boton secundario" disabled={estado.ocupado}>{estado.ocupado ? 'Revisando…' : 'Activar'}</button>
+      </form>
+      {estado.error && <p className="error" role="alert">{estado.error}</p>}
+    </section>
+  );
+}
+
+// Cambió de celular: con el número de operación de Mercado Pago
+function RecuperarPro() {
+  const [abierto, setAbierto] = useState(false);
+  const [pago, setPago] = useState('');
+  const [estado, setEstado] = useState({ ocupado: false, error: null });
+
+  async function enviar(e) {
+    e.preventDefault();
+    if (!/^\d{6,20}$/.test(pago)) return setEstado({ ocupado: false, error: 'Poné el número de operación (solo números).' });
+    setEstado({ ocupado: true, error: null });
+    try {
+      const r = await recuperarPro(pago);
+      setEstado({ ocupado: false, error: r.ok ? null : r.error });
+    } catch {
+      setEstado({ ocupado: false, error: 'No pudimos revisar el pago. Revisá tu conexión.' });
+    }
+  }
+
+  if (!abierto) {
+    return <p className="nota"><button type="button" className="enlace" onClick={() => setAbierto(true)}>¿Cambiaste de celular? Recuperá tu Pro</button></p>;
+  }
+  return (
+    <section className="bloque">
+      <h3>Recuperar mi Pro</h3>
+      <p className="tenue">Poné el <strong>número de operación</strong> de tu pago. Lo encontrás en Mercado Pago → Actividad → el pago a Quiniela al Toque, o en el mail del comprobante. El Pro pasa a este teléfono y deja de funcionar en el anterior.</p>
+      <form className="alertas-agregar" onSubmit={enviar}>
+        <input className="entrada-codigo entrada-operacion" inputMode="numeric" maxLength={20} placeholder="Número de operación" value={pago} onChange={(e) => setPago(e.target.value.replace(/\D/g, ''))} aria-label="Número de operación de Mercado Pago" />
+        <button type="submit" className="boton secundario" disabled={estado.ocupado}>{estado.ocupado ? 'Revisando…' : 'Recuperar'}</button>
       </form>
       {estado.error && <p className="error" role="alert">{estado.error}</p>}
     </section>
@@ -161,6 +195,8 @@ export default function Pro() {
       )}
 
       {!datos && <IngresarCodigo />}
+
+      {!pro && <RecuperarPro />}
 
       {play && !datos && (
         <p className="nota">¿Todavía no tenés código? Lo conseguís en nuestra web, quinielaaltoque.app.</p>
