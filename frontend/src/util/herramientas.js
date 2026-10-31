@@ -72,3 +72,9 @@ export function describirAcierto(a) {
   const ubic = a.ubicaciones.map((u, i) => (u === 1 ? `a la cabeza (${a.valores[i]})` : `ubicación ${u} (${a.valores[i]})`)).join(', ');
   return `${nombreQuiniela(a.quiniela)}, ${turnoPorId(a.turno).nombre}: ${ubic}`;
 }
+
+// Recomendar la app (el enlace ?inv cuenta en el panel como "Invitación de un usuario")
+export const ENLACE_INVITACION = 'https://quinielaaltoque.app/ir.html?inv=1';
+export function textoInvitacion() {
+  return `Te paso Quiniela al Toque: los resultados de las 22 quinielas apenas salen, avisos en el celular y control de tus jugadas. Gratis y sin registrarte: ${ENLACE_INVITACION}`;
+}
