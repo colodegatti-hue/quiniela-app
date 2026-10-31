@@ -14,6 +14,12 @@ const ORIGEN_OK = /^(directo|inv|ag:[a-z0-9-]{2,30})$/;
 
 let entradaAhora = null; // origen si en esta visita entró por un enlace
 
+// Robots (Google, AdSense, analizadores, navegadores automáticos): no cuentan como personas
+export const RE_ROBOT = /bot|crawl|spider|slurp|mediapartners|google-|adsbot|lighthouse|headless|pwabuilder|preview|facebookexternalhit|whatsapp|bingpreview|yandex|baidu/i;
+export function esRobot(nav = typeof navigator !== 'undefined' ? navigator : {}) {
+  return Boolean(nav.webdriver) || RE_ROBOT.test(String(nav.userAgent || ''));
+}
+
 const leer = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const escribir = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } };
 
@@ -42,6 +48,7 @@ export function origenGuardado() {
 
 // Avisa que se usó la app hoy (como mucho una vez por día, salvo que entre por un enlace)
 export async function avisarUso({ pro = false } = {}) {
+  if (esRobot()) return false;
   const dia = hoy();
   if (leer(CLAVE_DIA) === dia && !entradaAhora) return false;
   const d = idDispositivo();

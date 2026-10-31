@@ -46,10 +46,11 @@ export default function App() {
 
   // Medición anónima: una vez por día (y al volver a la app si cambió el día)
   useEffect(() => {
-    avisarUso({ pro });
+    // Recién a los 8 segundos con la app abierta (los robots suelen irse antes)
+    const espera = setTimeout(() => avisarUso({ pro }), 8000);
     const alVolver = () => { if (document.visibilityState === 'visible') avisarUso({ pro }); };
     document.addEventListener('visibilitychange', alVolver);
-    return () => document.removeEventListener('visibilitychange', alVolver);
+    return () => { clearTimeout(espera); document.removeEventListener('visibilitychange', alVolver); };
   }, [pro]);
 
   useEffect(() => {

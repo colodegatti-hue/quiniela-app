@@ -475,22 +475,23 @@ export async function resumenAdmin(hoy) {
             count(distinct dispositivo) filter (where dia > $1::date - 7)::int as dias7,
             count(distinct dispositivo) filter (where dia > $1::date - 30)::int as dias30,
             count(distinct dispositivo) filter (where dia > $1::date - 30 and pro)::int as pro30
-       from actividad where dia > $1::date - 30`, [hoy]);
+       from actividad where dia > $1::date - 30
+        and dispositivo not in (select dispositivo from admin_dispositivos)`, [hoy]);
   const [nuevos] = await q(
     `select count(*) filter (where (primera_vez at time zone 'America/Argentina/Buenos_Aires')::date = $1)::int as hoy,
             count(*) filter (where (primera_vez at time zone 'America/Argentina/Buenos_Aires')::date > $1::date - 7)::int as dias7,
             count(*) filter (where (primera_vez at time zone 'America/Argentina/Buenos_Aires')::date > $1::date - 30)::int as dias30,
             count(*)::int as total
-       from dispositivos`, [hoy]);
+       from dispositivos where id not in (select dispositivo from admin_dispositivos)`, [hoy]);
   const serie = await q(
     `with dias as (select generate_series($1::date - 29, $1::date, '1 day')::date as dia)
      select to_char(d.dia, 'YYYY-MM-DD') as dia,
-            (select count(*) from actividad a where a.dia = d.dia)::int as activos,
-            (select count(*) from dispositivos x where (x.primera_vez at time zone 'America/Argentina/Buenos_Aires')::date = d.dia)::int as nuevos
+            (select count(*) from actividad a where a.dia = d.dia and a.dispositivo not in (select dispositivo from admin_dispositivos))::int as activos,
+            (select count(*) from dispositivos x where (x.primera_vez at time zone 'America/Argentina/Buenos_Aires')::date = d.dia and x.id not in (select dispositivo from admin_dispositivos))::int as nuevos
        from dias d order by d.dia`, [hoy]);
   const origenes = await q(
     `select coalesce(origen, 'directo') as origen, count(*)::int as telefonos
-       from dispositivos group by 1 order by 2 desc limit 20`);
+       from dispositivos where id not in (select dispositivo from admin_dispositivos) group by 1 order by 2 desc limit 20`);
   const [pro] = await q(
     `select count(*) filter (where vence > now())::int as activos,
             count(*) filter (where vence > now() and nota is null)::int as pagos,
@@ -615,4 +616,9 @@ export async function provinciasFaltantes(desde, hasta, quinielas) {
     [desde, hasta, quinielas],
   );
   return r.rows;
+}
+
+export async function esDispositivoAdmin(dispositivo) {
+  const r = await db().query('select 1 from admin_dispositivos where dispositivo = $1', [dispositivo]);
+  return r.rowCount > 0;
 }
