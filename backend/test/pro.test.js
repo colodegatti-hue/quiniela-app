@@ -122,13 +122,15 @@ test('Renovar: el mismo código suma los días a lo que le quedaba', async () =>
   assert.deepEqual(await pro.comprar({ plan: 'mensual', codigo: '999999' }), { error: 'Ese código no existe' });
 });
 
-test('Verificar: código válido en hasta 3 teléfonos', async () => {
+test('Verificar: código válido en un solo teléfono', async () => {
   const { pro, mp } = armar();
   await pro.comprar({ plan: 'mensual' });
   mp.pagos.push({ id: 1, external_reference: 'ref-1', status: 'approved', transaction_amount: 1990, currency_id: 'ARS' });
   await pro.confirmar('ref-1');
-  for (const tel of ['a', 'b', 'c', 'a']) assert.equal((await pro.verificar('123456', tel)).activo, true);
-  assert.deepEqual(await pro.verificar('123456', 'd'), { activo: false, error: 'Ese código ya se usa en 3 teléfonos' });
+  for (const tel of ['a', 'a']) assert.equal((await pro.verificar('123456', tel)).activo, true);
+  const otro = await pro.verificar('123456', 'b');
+  assert.equal(otro.activo, false);
+  assert.match(otro.error, /ya está activo en otro teléfono/);
   assert.deepEqual(await pro.verificar('000000', 'a'), { activo: false, error: 'Ese código no existe' });
   assert.deepEqual(await pro.verificar('12', 'a'), { activo: false, error: 'El código tiene 6 números' });
   const vencido = await pro.verificar('123456', 'a', new Date(Date.now() + 40 * 864e5));

@@ -10,6 +10,9 @@ import Legal from './pantallas/Legal.jsx';
 import Arrepentimiento from './pantallas/Arrepentimiento.jsx';
 import { usePro, tomarRetorno, revisarPro } from './util/pro.js';
 import { capturarOrigen, avisarUso } from './util/medicion.js';
+import { detectarPlay, contarApertura } from './util/plataforma.js';
+import { API } from './util/datos.js';
+import Sugerencias from './componentes/Sugerencias.jsx';
 
 const PANTALLAS = {
   resultados: { titulo: 'Resultados', componente: Resultados },
@@ -24,6 +27,8 @@ const PANTALLAS = {
 };
 
 capturarOrigen(); // si entró por el QR o enlace de una agencia, recordarlo
+detectarPlay(); // si se abrió desde la app de Google Play
+contarApertura(); // para pedir la calificación desde la 3.ª vez
 tomarRetorno(); // si vuelve de pagar en Mercado Pago, ir a la pantalla Pro
 
 function pantallaActual() {
@@ -56,13 +61,27 @@ export default function App() {
 
   const Componente = PANTALLAS[pantalla].componente;
 
+  // 10 toques seguidos en el nombre abren el panel privado (pide la clave igual)
+  const [toques, setToques] = useState({ n: 0, hora: 0 });
+  function tocarMarca() {
+    const ahora = Date.now();
+    const n = ahora - toques.hora < 1500 ? toques.n + 1 : 1;
+    if (n >= 10) {
+      setToques({ n: 0, hora: 0 });
+      window.location.href = `${API}/admin`;
+      return;
+    }
+    setToques({ n, hora: ahora });
+  }
+
   return (
     <div className="app">
       <header className="barra">
-        <p className="marca">Quiniela <span className="marca-toque">al Toque</span></p>
+        <p className="marca" onClick={tocarMarca}>Quiniela <span className="marca-toque">al Toque</span></p>
         <a className={`boton-pro${pro ? ' es-pro' : ''}`} href="#/pro">{pro ? 'PRO' : 'Hacete Pro'}</a>
       </header>
       <main>
+        <Sugerencias />
         <Componente />
       </main>
       <nav className="navegacion" aria-label="Secciones">

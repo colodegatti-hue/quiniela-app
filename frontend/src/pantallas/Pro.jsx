@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePro, obtenerPlanes, comprar, activarCodigo, compraPendiente, confirmarCompra, fechaVence, olvidarCodigo } from '../util/pro.js';
 import { formatoPesos } from '../util/fechas.js';
+import { esPlay } from '../util/plataforma.js';
 
 const BENEFICIOS = [
   ['Estadísticas completas', 'Salidores y atrasados de las 7 quinielas, de los últimos 30, 60 y 90 días.'],
@@ -62,7 +63,7 @@ function IngresarCodigo() {
   return (
     <section className="bloque">
       <h3>¿Ya tenés un código?</h3>
-      <p className="tenue">Si ya sos Pro en otro teléfono, poné el mismo código. Sirve hasta en 3 teléfonos.</p>
+      <p className="tenue">Si ya tenés un código Pro, ponelo acá. Cada código sirve para un teléfono.</p>
       <form className="alertas-agregar" onSubmit={enviar}>
         <input className="entrada-codigo" inputMode="numeric" maxLength={6} placeholder="000000" value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ''))} aria-label="Código Pro" />
         <button type="submit" className="boton secundario" disabled={estado.ocupado}>{estado.ocupado ? 'Revisando…' : 'Activar'}</button>
@@ -122,6 +123,7 @@ export default function Pro() {
   const { pro, datos } = usePro();
   const [confirmando, setConfirmando] = useState(() => Boolean(compraPendiente()));
   const [olvidar, setOlvidar] = useState(false);
+  const play = esPlay(); // en la app de Google Play no se vende: solo se activa un código
 
   return (
     <section className="pantalla">
@@ -134,7 +136,7 @@ export default function Pro() {
           <p className="pro-sello">PRO</p>
           <p>Tu código</p>
           <p className="pro-codigo">{datos.codigo.slice(0, 3)} {datos.codigo.slice(3)}</p>
-          <p className="tenue">Vence el {fechaVence(datos.vence)}. Guardalo: con este código activás Pro en otro teléfono (hasta 3).</p>
+          <p className="tenue">Vence el {fechaVence(datos.vence)}. Guardalo: es tu comprobante. El código sirve para este teléfono; si cambiás de celular, escribinos y lo pasamos al nuevo.</p>
         </section>
       ) : (
         <>
@@ -148,13 +150,15 @@ export default function Pro() {
       )}
 
       {datos && !pro && (
-        <p className="nota">Tu código {datos.codigo} venció el {fechaVence(datos.vence)}. Si lo renovás, sigue siendo el mismo.</p>
+        <p className="nota">Tu código {datos.codigo} venció el {fechaVence(datos.vence)}.{play ? '' : ' Si lo renovás, sigue siendo el mismo.'}</p>
       )}
 
-      <section className="bloque">
-        <h3>{datos ? 'Renovar' : 'Hacete Pro'}</h3>
-        <Planes renovar={Boolean(datos)} />
-      </section>
+      {!play && (
+        <section className="bloque">
+          <h3>{datos ? 'Renovar' : 'Hacete Pro'}</h3>
+          <Planes renovar={Boolean(datos)} />
+        </section>
+      )}
 
       {!datos && <IngresarCodigo />}
 

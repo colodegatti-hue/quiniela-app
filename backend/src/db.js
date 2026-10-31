@@ -545,3 +545,18 @@ export async function registroAdmin(limite = 30) {
   const r = await db().query('select cuando, accion, detalle, ip from admin_registro order by id desc limit $1', [limite]);
   return r.rows;
 }
+
+// ---- Códigos Pro desde el panel ----------------------------------------
+export async function licenciaAdmin(codigo) {
+  const r = await db().query(
+    `select l.codigo, l.plan, l.vence, l.nota, cardinality(l.dispositivos)::int as telefonos, l.creada,
+            (select count(*) from compras c where c.codigo = l.codigo and c.estado = 'aprobada')::int as compras
+       from licencias l where l.codigo = $1`, [codigo]);
+  return r.rows[0] ?? null;
+}
+
+// Saca los teléfonos del código (para que lo active en el celular nuevo)
+export async function liberarLicencia(codigo) {
+  const r = await db().query("update licencias set dispositivos = '{}' where codigo = $1", [codigo]);
+  return r.rowCount > 0;
+}

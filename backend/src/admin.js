@@ -113,6 +113,24 @@ export function montarAdmin(app, { base = baseReal, clave = () => process.env.AD
     }
   });
 
+  // Buscar un código Pro y liberarlo (cuando alguien cambia de celular)
+  r.get('/api/codigo/:codigo', exigir, async (req, res) => {
+    const codigo = String(req.params.codigo);
+    if (!/^\d{6}$/.test(codigo)) return res.status(400).json({ error: 'El código tiene 6 números' });
+    const l = await base.licenciaAdmin(codigo);
+    if (!l) return res.status(404).json({ error: 'Ese código no existe' });
+    res.json(l);
+  });
+
+  r.post('/api/codigo/:codigo/liberar', exigir, async (req, res) => {
+    const codigo = String(req.params.codigo);
+    if (!/^\d{6}$/.test(codigo)) return res.status(400).json({ error: 'El código tiene 6 números' });
+    const ok = await base.liberarLicencia(codigo);
+    if (!ok) return res.status(404).json({ error: 'Ese código no existe' });
+    base.anotarAdmin('código liberado', codigo, ipDe(req)).catch(() => {});
+    res.json({ ok: true });
+  });
+
   r.get('/api/registro', exigir, async (req, res) => {
     res.json(await base.registroAdmin(50));
   });
@@ -211,6 +229,12 @@ const PANEL = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta 
 <div class="grilla" id="pro"></div>
 <p class="nota">Montos brutos cobrados por Mercado Pago (antes de comisiones e impuestos). "Pro activos" incluye códigos de cortesía.</p>
 
+<h2>Código Pro de un cliente</h2>
+<div class="caja"><form id="buscar-codigo" class="form">
+<label>Código<input name="codigo" inputmode="numeric" maxlength="6" placeholder="000000" required></label>
+<button type="submit">Buscar</button></form><div id="codigo-res" class="nota"></div></div>
+<p class="nota">Cada código sirve en un teléfono. Si el cliente cambió de celular, tocá "Liberar" y que ponga el código en el nuevo.</p>
+
 <h2>Agencias amigas</h2>
 <div class="caja"><table><thead><tr><th>Agencia</th><th>Localidad</th><th>Entradas por QR</th><th>Teléfonos nuevos</th><th>Activos 30 días</th><th>Compras Pro</th><th></th></tr></thead><tbody id="agencias"></tbody></table></div>
 <p class="nota">Entradas = veces que abrieron el enlace o QR (aunque ya tuvieran la app). Teléfonos nuevos = la primera vez que abrieron la app fue por esa agencia.</p>
@@ -250,6 +274,21 @@ async function cargar() {
     : '<tr><td colspan="7" class="nota">Todavía no cargaste agencias.</td></tr>';
   $('origenes').innerHTML = d.origenes.length ? d.origenes.map((o) => '<tr><td>' + esc(NOMBRES[o.origen] || (o.origen.startsWith('ag:') ? 'Agencia ' + o.origen.slice(3) : o.origen)) + '</td><td>' + fmt(o.telefonos) + '</td></tr>').join('') : '<tr><td colspan="2" class="nota">Sin datos todavía.</td></tr>';
 }
+$('buscar-codigo').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const c = new FormData(e.target).get('codigo');
+  const r = await fetch('/admin/api/codigo/' + encodeURIComponent(c));
+  const x = await r.json();
+  if (x.error) { $('codigo-res').textContent = x.error; return; }
+  const vence = new Date(x.vence);
+  $('codigo-res').innerHTML = '<p><b>' + esc(x.codigo) + '</b> · plan ' + esc(x.plan) + (x.nota ? ' (' + esc(x.nota) + ')' : '') + ' · ' + (vence > new Date() ? 'vence el ' : 'venció el ') + vence.toLocaleDateString('es-AR') + ' · ' + x.compras + ' compra(s) · ' + (x.telefonos ? 'activo en ' + x.telefonos + ' teléfono(s)' : 'sin teléfono') + '</p>'
+    + (x.telefonos ? '<button id="liberar" type="button">Liberar para otro teléfono</button>' : '');
+  const b = $('liberar');
+  if (b) b.addEventListener('click', async () => {
+    const y = await (await fetch('/admin/api/codigo/' + encodeURIComponent(c) + '/liberar', { method: 'POST' })).json();
+    $('codigo-res').textContent = y.ok ? 'Listo: el código ' + c + ' quedó libre. Ya lo puede poner en el celular nuevo.' : (y.error || 'No se pudo');
+  });
+});
 $('nueva').addEventListener('submit', async (e) => {
   e.preventDefault();
   const datos = Object.fromEntries(new FormData(e.target));
