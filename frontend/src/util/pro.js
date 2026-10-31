@@ -77,6 +77,16 @@ export async function activarCodigo(codigo) {
   return { ok: true };
 }
 
+// Cambió de celular: recupera el Pro con el número de operación de Mercado Pago. Devuelve { ok, error }
+export async function recuperarPro(pago) {
+  const r = await pedir('/api/pro/recuperar', { pago, dispositivo: idDispositivo() });
+  if (r.error) return { ok: false, error: r.error };
+  guardarPro({ codigo: r.codigo, plan: r.plan, vence: r.vence, revisado: new Date().toISOString() });
+  avisarCodigoAlServidor(r.codigo);
+  if (!r.activo) return { ok: false, error: 'Recuperamos tu código, pero está vencido.' };
+  return { ok: true };
+}
+
 // Revisa el código guardado una vez por día (por si se renovó o venció)
 export async function revisarPro() {
   const p = leerPro();
@@ -85,6 +95,7 @@ export async function revisarPro() {
   try {
     const r = await pedir('/api/pro/verificar', { codigo: p.codigo, dispositivo: idDispositivo() });
     if (!r.error) guardarPro({ codigo: r.codigo, plan: r.plan, vence: r.vence, revisado: new Date().toISOString() });
+    else if (/otro teléfono/.test(r.error)) guardarPro(null); // se pasó a otro celular
   } catch { /* sin conexión: se revisa la próxima vez */ }
 }
 

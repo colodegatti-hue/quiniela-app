@@ -22,6 +22,13 @@ function baseFalsa() {
       return licencias.get(c.codigo);
     },
     async buscarLicencia(c) { return licencias.get(c) ?? null; },
+    async marcarRecuperacion(c, ahora) {
+      const l = licencias.get(c);
+      if (l.recuperada && ahora - l.recuperada < 2 * 864e5) return false;
+      l.recuperada = ahora;
+      return true;
+    },
+    async liberarLicencia(c) { licencias.get(c).dispositivos = []; return true; },
     async vincularDispositivo(c, d, max) {
       const l = licencias.get(c);
       if (l.dispositivos.includes(d)) return true;
@@ -142,4 +149,25 @@ test('No repite códigos ya usados', async () => {
   await pro.comprar({ plan: 'mensual' });
   await pro.comprar({ plan: 'mensual' });
   assert.equal(base.compras.get('ref-2').codigo, '222222');
+});
+
+test('Recuperar el Pro en otro celular con el número de operación', async () => {
+  const { pro, mp } = armar();
+  await pro.comprar({ plan: 'mensual' });
+  mp.pagos.push({ id: 98765432, external_reference: 'ref-1', status: 'approved', transaction_amount: 1990, currency_id: 'ARS' });
+  const viejo = '11111111-1111-4111-8111-111111111111';
+  const nuevo = '22222222-2222-4222-8222-222222222222';
+  await pro.confirmar('ref-1');
+  assert.equal((await pro.verificar('123456', viejo)).activo, true);
+  assert.equal((await pro.verificar('123456', nuevo)).activo, false); // ocupado en el viejo
+  const r = await pro.recuperar('98765432', nuevo);
+  assert.equal(r.activo, true);
+  assert.equal(r.codigo, '123456');
+  assert.equal((await pro.verificar('123456', nuevo)).activo, true);
+  assert.equal((await pro.verificar('123456', viejo)).activo, false); // el viejo quedó afuera
+  assert.match((await pro.recuperar('98765432', viejo)).error, /hace poco/); // límite de 2 días
+  const tarde = await pro.recuperar('98765432', viejo, new Date(Date.now() + 3 * 864e5));
+  assert.equal(tarde.codigo, '123456');
+  assert.match((await pro.recuperar('11223344', nuevo)).error, /No encontramos/);
+  assert.match((await pro.recuperar('12', nuevo)).error, /solo números/);
 });

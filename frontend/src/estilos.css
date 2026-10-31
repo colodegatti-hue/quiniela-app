@@ -642,3 +642,23 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 .cartel-botones { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
 .cartel-botones .boton { text-decoration: none; }
 .marca { cursor: default; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.alertas-agregar .entrada-operacion { flex: 1; min-width: 0; width: auto; font-size: 1.15rem; letter-spacing: 0.04em; color: var(--tinta); }
+
+/* ---- Botón de avisos arriba (solo si no están activados) ---- */
+.boton-avisos {
+  margin-left: auto; align-self: center;
+  background: var(--marcador); color: #14261e; border: 0; border-radius: 999px;
+  padding: 0.25rem 0.7rem; font: inherit; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;
+}
+.barra .boton-avisos ~ .boton-pro { margin-left: 0; }
+.barra { align-items: center; }
+@media (max-width: 480px) {
+  .boton-avisos { font-size: 0; padding: 0.25rem 0.55rem; }
+  .boton-avisos span { font-size: 1rem; }
+}
+@media (max-width: 360px) { .marca { font-size: 1.4rem; } }
+.marca, .boton-pro { white-space: nowrap; }
+.aviso-flotante {
+  position: fixed; left: 1rem; right: 1rem; top: calc(4rem + env(safe-area-inset-top)); z-index: 30; margin: 0;
+  background: var(--superficie); color: var(--tinta); border: 2px solid var(--rojo); border-radius: var(--radio); padding: 0.8rem 1rem;
+}

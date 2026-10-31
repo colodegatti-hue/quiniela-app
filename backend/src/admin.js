@@ -155,12 +155,12 @@ export function montarAdmin(app, { base = baseReal, clave = () => process.env.AD
     }
   });
 
-  // QR de una agencia (SVG). Lleva a la app con ?ag=CODIGO
+  // QR de una agencia (SVG). Lleva a /ir.html?ag=CODIGO: Android → Play (cuando esté publicada), iPhone → cómo instalar, resto → la app
   r.get('/qr/:codigo.svg', async (req, res) => {
     if (!logueado(req)) return res.sendStatus(401);
     const codigo = String(req.params.codigo);
     if (!/^[a-z0-9-]{2,30}$/.test(codigo)) return res.sendStatus(404);
-    const svg = await QRCode.toString(`${appUrl()}/?ag=${codigo}`, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0b2545', light: '#ffffff' } });
+    const svg = await QRCode.toString(`${appUrl()}/ir.html?ag=${codigo}`, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0b2545', light: '#ffffff' } });
     res.type('image/svg+xml').send(svg);
   });
 
@@ -169,7 +169,7 @@ export function montarAdmin(app, { base = baseReal, clave = () => process.env.AD
     if (!logueado(req)) return res.redirect(303, '/admin');
     const ag = await base.buscarAgencia(String(req.params.codigo));
     if (!ag) return res.status(404).type('text').send('No existe esa agencia');
-    const enlace = `${appUrl()}/?ag=${ag.codigo}`;
+    const enlace = `${appUrl()}/ir.html?ag=${ag.codigo}`;
     const svg = await QRCode.toString(enlace, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0b2545', light: '#ffffff' } });
     res.type('html').send(FLYER({ nombre: ag.nombre, localidad: ag.localidad, enlace, svg }));
   });
@@ -270,7 +270,7 @@ async function cargar() {
   $('pro').innerHTML = tarjeta('Pro activos', fmt(d.pro.activos), fmt(d.pro.pagos) + ' pagos') + tarjeta('Vencen en 7 días', fmt(d.pro.vencen7)) + tarjeta('Vencidos (30 días)', fmt(d.pro.vencidos30))
     + tarjeta('Cobrado este mes', pesos(d.ventas.mes_monto), fmt(d.ventas.mes_cantidad) + ' compras') + tarjeta('Cobrado este año', pesos(d.ventas.anio_monto), fmt(d.ventas.anio_cantidad) + ' compras')
     + tarjeta('Planes vendidos', fmt(d.ventas.mensuales) + ' / ' + fmt(d.ventas.anuales), 'mensuales / anuales');
-  $('agencias').innerHTML = d.agencias.length ? d.agencias.map((a) => '<tr><td><b>' + esc(a.nombre) + '</b><br><small class="nota">' + esc(d.appUrl) + '/?ag=' + esc(a.codigo) + '</small></td><td>' + esc(a.localidad) + '</td><td>' + fmt(a.visitas) + '</td><td>' + fmt(a.telefonos) + '</td><td>' + fmt(a.activos30) + '</td><td>' + fmt(a.compras_pro) + '</td><td><a class="boton" href="/admin/flyer/' + encodeURIComponent(a.codigo) + '" target="_blank">Flyer y QR</a></td></tr>').join('')
+  $('agencias').innerHTML = d.agencias.length ? d.agencias.map((a) => '<tr><td><b>' + esc(a.nombre) + '</b><br><small class="nota">' + esc(d.appUrl) + '/ir.html?ag=' + esc(a.codigo) + '</small></td><td>' + esc(a.localidad) + '</td><td>' + fmt(a.visitas) + '</td><td>' + fmt(a.telefonos) + '</td><td>' + fmt(a.activos30) + '</td><td>' + fmt(a.compras_pro) + '</td><td><a class="boton" href="/admin/flyer/' + encodeURIComponent(a.codigo) + '" target="_blank">Flyer y QR</a></td></tr>').join('')
     : '<tr><td colspan="7" class="nota">Todavía no cargaste agencias.</td></tr>';
   $('origenes').innerHTML = d.origenes.length ? d.origenes.map((o) => '<tr><td>' + esc(NOMBRES[o.origen] || (o.origen.startsWith('ag:') ? 'Agencia ' + o.origen.slice(3) : o.origen)) + '</td><td>' + fmt(o.telefonos) + '</td></tr>').join('') : '<tr><td colspan="2" class="nota">Sin datos todavía.</td></tr>';
 }

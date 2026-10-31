@@ -400,6 +400,19 @@ app.post('/api/pro/verificar', async (req, res) => {
 
 // Botón de arrepentimiento: la persona pide cancelar su compra Pro (Ley 24.240, art. 34).
 // Se guarda el pedido y se le devuelve un número de trámite. La devolución se hace a mano en Mercado Pago.
+app.post('/api/pro/recuperar', async (req, res) => {
+  if (demasiadosIntentos(req)) return res.status(429).json({ activo: false, error: 'Demasiados intentos. Esperá unos minutos.' });
+  const { pago, dispositivo } = req.body || {};
+  try {
+    const r = await pro.recuperar(pago, dispositivo);
+    if (r.activo !== undefined && !r.error) console.log(`[pro] recuperado ${r.codigo?.slice(0, 2)}****`);
+    res.json(r);
+  } catch (e) {
+    console.error('[pro] recuperar:', e.message);
+    res.status(503).json({ activo: false, error: 'No pudimos consultar Mercado Pago. Probá de nuevo en un rato.' });
+  }
+});
+
 app.post('/api/pro/arrepentimiento', async (req, res) => {
   if (demasiadosIntentos(req)) return res.status(429).json({ error: 'Demasiados intentos. Esperá unos minutos.' });
   const { codigo, contacto, detalle } = req.body || {};

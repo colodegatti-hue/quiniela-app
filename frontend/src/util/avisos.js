@@ -27,6 +27,12 @@ function guardarPreferencias(p) {
   try { localStorage.setItem(CLAVE_PREFS, JSON.stringify(p)); } catch { /* sin espacio */ }
 }
 
+// Avisa al resto de la app (botón de arriba, carteles) que se activaron o desactivaron
+export const EVENTO_AVISOS = 'quiniela-avisos';
+function avisarCambio() {
+  try { window.dispatchEvent(new Event(EVENTO_AVISOS)); } catch { /* fuera del navegador */ }
+}
+
 // ¿Este navegador puede recibir avisos?
 export function soporteAvisos() {
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
@@ -85,6 +91,7 @@ export async function activarAvisos(preferencias = cargarPreferencias()) {
     codigo: leerPro()?.codigo,
   });
   guardarPreferencias(preferencias);
+  avisarCambio();
   return sub;
 }
 
@@ -115,4 +122,5 @@ export async function desactivarAvisos() {
   if (!sub) return;
   try { await enviar('/api/push/baja', { endpoint: sub.endpoint }); } catch { /* igual se da de baja local */ }
   await sub.unsubscribe();
+  avisarCambio();
 }

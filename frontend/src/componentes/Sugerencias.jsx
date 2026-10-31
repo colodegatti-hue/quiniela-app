@@ -21,9 +21,25 @@ function toca(clave) {
   return !v || Date.now() > Number(v);
 }
 
+// Cada vez que guarda una jugada: si no tiene avisos, se los ofrece en la 1.ª y cada 5 jugadas
+const CLAVE_GUARDADAS = 'quiniela.jugadas.guardadas';
+export const tocaPedirPorJugada = (n) => n === 1 || (n > 0 && n % 5 === 0);
+
 export default function Sugerencias() {
-  const [cartel, setCartel] = useState(null); // 'avisos' | 'iphone' | 'calificar'
+  const [cartel, setCartel] = useState(null); // 'avisos' | 'jugada' | 'iphone' | 'calificar'
   const [estado, setEstado] = useState({ ocupado: false, error: null });
+
+  useEffect(() => {
+    const alGuardar = async () => {
+      const n = (Number(leer(CLAVE_GUARDADAS)) || 0) + 1;
+      escribir(CLAVE_GUARDADAS, String(n));
+      if (!tocaPedirPorJugada(n) || !soporteAvisos().ok) return;
+      const sub = await suscripcionActual().catch(() => null);
+      if (!sub) { setEstado({ ocupado: false, error: null }); setCartel('jugada'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    };
+    window.addEventListener('quiniela-jugada-guardada', alGuardar);
+    return () => window.removeEventListener('quiniela-jugada-guardada', alGuardar);
+  }, []);
 
   useEffect(() => {
     let vigente = true;
@@ -54,14 +70,15 @@ export default function Sugerencias() {
     }
   }
 
-  if (cartel === 'avisos') {
+  if (cartel === 'avisos' || cartel === 'jugada') {
+    const porJugada = cartel === 'jugada';
     return (
       <section className="cartel" role="dialog" aria-label="Activar avisos">
-        <p className="cartel-titulo">🔔 ¿Te avisamos cuando salgan los números?</p>
-        <p>Recibí la cabeza de cada sorteo apenas sale y enterate al toque si salió tu jugada.</p>
+        <p className="cartel-titulo">{porJugada ? '🔔 ¿Te avisamos si sale tu jugada?' : '🔔 ¿Te avisamos cuando salgan los números?'}</p>
+        <p>{porJugada ? 'Activá los avisos y te llega una notificación apenas salga tu número, con el premio estimado.' : 'Recibí la cabeza de cada sorteo apenas sale y enterate al toque si salió tu jugada.'}</p>
         <div className="cartel-botones">
           <button type="button" className="boton" disabled={estado.ocupado} onClick={activar}>{estado.ocupado ? 'Activando…' : 'Sí, avisame'}</button>
-          <button type="button" className="enlace" onClick={() => { posponer('quiniela.cartel.avisos', 3); setCartel(null); }}>Ahora no</button>
+          <button type="button" className="enlace" onClick={() => { if (!porJugada) posponer('quiniela.cartel.avisos', 3); setCartel(null); }}>Ahora no</button>
         </div>
         {estado.error && <p className="error" role="alert">{estado.error}</p>}
       </section>

@@ -149,3 +149,6 @@ create table if not exists admin_registro (
 -- Compras: de qué teléfono y origen vinieron (para medir agencias)
 alter table compras add column if not exists dispositivo text;
 alter table compras add column if not exists origen text;
+
+-- Recuperar el Pro en un celular nuevo con el número de operación (máx. 1 vez cada 2 días)
+alter table licencias add column if not exists recuperada_en timestamptz;
