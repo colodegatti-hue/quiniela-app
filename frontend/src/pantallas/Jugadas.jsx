@@ -18,7 +18,7 @@ function turnosPendientes(fecha) {
 
 const FORM_INICIAL = () => {
   const fecha = fechasPosibles()[0];
-  return { numero: '', ubicacion: 'cabeza', quinielas: ['ciudad', 'provincia'], turnos: turnosPendientes(fecha), fecha, monto: '' };
+  return { tipo: 'directa', numero: '', ubicacion: 'cabeza', numero2: '', ubicacion2: 'a_los_5', quinielas: ['ciudad', 'provincia'], turnos: turnosPendientes(fecha), fecha, monto: '' };
 };
 
 function alternar(lista, valor) {
@@ -39,31 +39,59 @@ function Formulario({ alGuardar, alCancelar }) {
 
   return (
     <form className="formulario" onSubmit={enviar} noValidate>
+      <fieldset className="campo">
+        <legend>Tipo de jugada</legend>
+        <div className="opciones">
+          <button type="button" className={`opcion${f.tipo === 'directa' ? ' activa' : ''}`} aria-pressed={f.tipo === 'directa'} onClick={() => cambiar('tipo', 'directa')}>Directa</button>
+          <button type="button" className={`opcion${f.tipo === 'redoblona' ? ' activa' : ''}`} aria-pressed={f.tipo === 'redoblona'} onClick={() => setF((x) => ({ ...x, tipo: 'redoblona', numero: x.numero.slice(-2), ubicacion: x.ubicacion === 'a_los_20' ? 'cabeza' : x.ubicacion }))}>Redoblona</button>
+        </div>
+        {f.tipo === 'redoblona' && <small>Dos números de 2 cifras: tienen que salir los dos para cobrar.</small>}
+      </fieldset>
+
       <label className="campo">
-        <span>Número</span>
+        <span>{f.tipo === 'redoblona' ? 'Primer número' : 'Número'}</span>
         <input
           className="entrada-numero"
           inputMode="numeric"
           autoComplete="off"
-          maxLength={4}
+          maxLength={f.tipo === 'redoblona' ? 2 : 4}
           placeholder="Ej.: 47"
           value={f.numero}
           onChange={(e) => cambiar('numero', e.target.value.replace(/\D/g, ''))}
           autoFocus
         />
-        <small>De 1 a 4 cifras. Se controla con las últimas cifras de cada número sorteado.</small>
+        {f.tipo !== 'redoblona' && <small>De 1 a 4 cifras. Se controla con las últimas cifras de cada número sorteado.</small>}
       </label>
 
       <fieldset className="campo">
         <legend>Ubicación</legend>
         <div className="opciones">
-          {Object.entries(UBICACIONES).map(([id, u]) => (
+          {Object.entries(UBICACIONES).filter(([id]) => f.tipo !== 'redoblona' || id !== 'a_los_20').map(([id, u]) => (
             <button key={id} type="button" className={`opcion${f.ubicacion === id ? ' activa' : ''}`} aria-pressed={f.ubicacion === id} onClick={() => cambiar('ubicacion', id)}>
               {u.nombre}
             </button>
           ))}
         </div>
       </fieldset>
+
+      {f.tipo === 'redoblona' && (
+        <>
+          <label className="campo">
+            <span>Segundo número</span>
+            <input className="entrada-numero" inputMode="numeric" autoComplete="off" maxLength={2} placeholder="Ej.: 12" value={f.numero2} onChange={(e) => cambiar('numero2', e.target.value.replace(/\D/g, ''))} />
+          </label>
+          <fieldset className="campo">
+            <legend>Ubicación del segundo</legend>
+            <div className="opciones">
+              {Object.entries(UBICACIONES).filter(([id]) => id !== 'cabeza').map(([id, u]) => (
+                <button key={id} type="button" className={`opcion${f.ubicacion2 === id ? ' activa' : ''}`} aria-pressed={f.ubicacion2 === id} onClick={() => cambiar('ubicacion2', id)}>
+                  {u.nombre}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        </>
+      )}
 
       <fieldset className="campo">
         <legend>Quinielas</legend>
@@ -117,13 +145,15 @@ function TarjetaJugada({ jugada, resultados, alBorrar }) {
   const filas = controlarJugada(jugada, resultados);
   const r = resumenJugada(filas, jugada);
   const ubic = UBICACIONES[jugada.ubicacion].nombre.toLowerCase();
+  const redoblona = jugada.tipo === 'redoblona';
+  const ubic2 = redoblona ? (UBICACIONES[jugada.ubicacion2]?.nombre ?? '').toLowerCase() : '';
 
   return (
     <article className={`jugada${r.ganadas ? ' ganadora' : ''}`}>
       <header className="jugada-cabecera">
-        <p className="jugada-numero">{jugada.numero}</p>
+        <p className="jugada-numero">{redoblona ? `${jugada.numero}·${jugada.numero2}` : jugada.numero}</p>
         <div>
-          <p className="jugada-detalle">{ubic}, {fechaCorta(jugada.fecha)}</p>
+          <p className="jugada-detalle">{redoblona ? `Redoblona: ${jugada.numero} ${ubic} y ${jugada.numero2} ${ubic2}` : ubic}, {fechaCorta(jugada.fecha)}</p>
           <p className="jugada-estado">
             {r.ganadas > 0
               ? r.premio !== null ? `Ganaste ${formatoPesos(r.premio)} (estimado)` : `Acertaste en ${r.ganadas} ${r.ganadas === 1 ? 'sorteo' : 'sorteos'}`

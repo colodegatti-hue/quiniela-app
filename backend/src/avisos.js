@@ -8,7 +8,7 @@
 // Variables de entorno: VAPID_PUBLICA, VAPID_PRIVADA, VAPID_CONTACTO
 // =====================================================================
 import webpush from 'web-push';
-import { evaluarConLoQueHay, UBICACIONES } from '../../shared/premios.js';
+import { evaluarGuardada, UBICACIONES } from '../../shared/premios.js';
 import { suenoDe } from '../../shared/suenos.js';
 import { TURNOS, horaArgentina, minutosDelDia } from './horarios.js';
 import * as baseReal from './db.js';
@@ -49,17 +49,25 @@ export function armarAviso(sub, sorteo) {
   const aciertos = [];
   for (const j of jugadas) {
     if (j.fecha !== sorteo.fecha || !j.turnos?.includes(sorteo.turno) || !UBICACIONES[j.ubicacion]) continue;
-    const { desde, hasta } = UBICACIONES[j.ubicacion];
+    const redoblona = j.tipo === 'redoblona';
+    if (redoblona ? !(/^\d{2}$/.test(String(j.numero)) && /^\d{2}$/.test(String(j.numero2)) && UBICACIONES[j.ubicacion2]) : !/^\d{1,4}$/.test(String(j.numero))) continue;
     for (const q of j.quinielas || []) {
       const ex = sorteo.extractos.find((e) => e.quiniela === q);
-      if (!ex || !/^\d{1,4}$/.test(String(j.numero))) continue;
-      const { estado, resultado: r } = evaluarConLoQueHay({ numero: String(j.numero), desde, hasta, monto: Number(j.monto) || 1 }, ex.numeros);
-      if (estado === 'gano') aciertos.push({ numero: String(j.numero), quiniela: q, ubicaciones: r.aciertos, premio: Number(j.monto) ? r.premio : null });
+      if (!ex) continue;
+      let ev;
+      try { ev = evaluarGuardada({ ...j, monto: Number(j.monto) || 1 }, ex.numeros); } catch { continue; }
+      if (ev.estado !== 'gano') continue;
+      const r = ev.resultado;
+      aciertos.push({
+        numero: redoblona ? `${j.numero}-${j.numero2}` : String(j.numero), quiniela: q, redoblona,
+        ubicaciones: redoblona ? [...r.aciertos1, ...r.aciertos2] : r.aciertos, premio: Number(j.monto) ? r.premio : null,
+      });
     }
   }
   if (aciertos.length) {
     const numeros = [...new Set(aciertos.map((a) => a.numero))];
     const lineas = aciertos.slice(0, 4).map((a) => {
+      if (a.redoblona) return `${NOMBRES[a.quiniela]}: redoblona ${a.numero}${a.premio ? ` (${pesos(a.premio)} estimado)` : ''}`;
       const donde = a.ubicaciones[0] === 1 ? 'a la cabeza' : `en la ubicación ${a.ubicaciones.join(', ')}`;
       return `${NOMBRES[a.quiniela]}: el ${a.numero} ${donde}${a.premio ? ` (${pesos(a.premio)} estimado)` : ''}`;
     });

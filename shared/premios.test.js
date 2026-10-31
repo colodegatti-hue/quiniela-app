@@ -159,3 +159,14 @@ test('Extracto parcial (solo la cabeza): gana si acierta lo conocido, si no qued
   assert.equal(evaluarConLoQueHay({ numero: '0', desde: 1, hasta: 5, monto: 100 }, parcial).estado, 'pendiente'); // el relleno no cuenta
   assert.equal(evaluarConLoQueHay({ numero: '79', desde: 1, hasta: 20, monto: 100 }, parcial).resultado.premio, 350);
 });
+
+test('Jugada guardada: redoblona completa y con extracto a medias', async () => {
+  const { evaluarGuardada } = await import('./premios.js');
+  const ex = ['1279', '3412', '0055', '7788', '9901', ...Array(15).fill('0000')];
+  const j = { tipo: 'redoblona', numero: '79', ubicacion: 'cabeza', numero2: '12', ubicacion2: 'a_los_5', monto: 10 };
+  assert.equal(evaluarGuardada(j, ex).estado, 'gano');
+  assert.equal(evaluarGuardada({ ...j, numero2: '44' }, ex).estado, 'no');
+  const parcial = ['1279', ...Array(19).fill('')];
+  assert.equal(evaluarGuardada(j, parcial).estado, 'pendiente');
+  assert.equal(evaluarGuardada({ tipo: 'directa', numero: '79', ubicacion: 'cabeza', monto: 10 }, parcial).estado, 'gano');
+});

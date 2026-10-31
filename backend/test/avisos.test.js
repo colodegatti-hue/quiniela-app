@@ -190,3 +190,15 @@ test('Extracto parcial (solo la cabeza): jugadas a los 20 no se cuentan todavía
   const gana = armarAviso({ preferencias: {}, jugadas: [{ ...jugadas[0], numero: '71', ubicacion: 'cabeza' }] }, parcial);
   assert.match(gana.titulo, /Salió tu 71/);
 });
+
+test('Redoblona que sale: avisa con el premio', () => {
+  // Matutina 08/10: Ciudad cabeza 9179 → 79; buscamos el 2.º número a los 5
+  const ciudad = SORTEO.extractos.find((e) => e.quiniela === 'ciudad').numeros;
+  const segundo = ciudad.slice(1, 5).map((n) => n.slice(-2)).find((n) => n !== '79');
+  const jugada = { tipo: 'redoblona', numero: '79', ubicacion: 'cabeza', numero2: segundo, ubicacion2: 'a_los_5', quinielas: ['ciudad'], turnos: ['matutina'], fecha: '2026-10-08', monto: 100 };
+  const a = armarAviso({ preferencias: { cabezas: false }, jugadas: [jugada] }, SORTEO);
+  assert.match(a.titulo, /Salió tu 79-/);
+  assert.match(a.cuerpo, /Ciudad: redoblona 79-\d\d \(\$/);
+  const no = armarAviso({ preferencias: { cabezas: false }, jugadas: [{ ...jugada, numero2: '00' === segundo ? '01' : '00' }] }, SORTEO);
+  assert.equal(no, null);
+});

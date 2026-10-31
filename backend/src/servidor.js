@@ -269,6 +269,7 @@ function limpiarJugadas(jugadas) {
     .filter((j) => j && /^\d{1,4}$/.test(String(j.numero)) && typeof j.fecha === 'string' && j.fecha >= desde)
     .slice(0, 50)
     .map((j) => ({
+      ...(j.tipo === 'redoblona' && /^\d{2}$/.test(String(j.numero2)) ? { tipo: 'redoblona', numero2: String(j.numero2), ubicacion2: String(j.ubicacion2) } : {}),
       numero: String(j.numero), ubicacion: String(j.ubicacion), fecha: j.fecha,
       quinielas: (j.quinielas || []).map(String).slice(0, 10), turnos: (j.turnos || []).map(String).slice(0, 5),
       monto: Number(j.monto) > 0 ? Number(j.monto) : null,

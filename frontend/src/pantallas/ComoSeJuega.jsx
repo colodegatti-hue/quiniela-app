@@ -75,7 +75,7 @@ export default function ComoSeJuega() {
         Son dos números de dos cifras, cada uno con su ubicación, en la misma quiniela. Si sale el primero, lo que
         ganás se juega entero al segundo. Con el mismo extracto, $100 al 79 a la cabeza y al 32 a los 5 pagaban{' '}
         {formatoPesos(ej3)}. La redoblona tiene topes: en general, hasta {veces(PAGOS.topesRedoblona.general)} veces
-        lo apostado. La app todavía no controla redoblonas; llega en una próxima versión.
+        lo apostado. En Jugadas podés cargar redoblonas y la app las controla sola.
       </p>
 
       <h3>Cómo se cobra</h3>
