@@ -21,7 +21,7 @@ import { crearAvisos, pushConfigurado } from './avisos.js';
 import { crearPro, planes, codigoValido } from './pro.js';
 import { mpConfigurado, crearPreferencia, cuentaMp } from './mercadopago.js';
 import { crearCiclo } from './ciclo.js';
-import { horaArgentina, QUINIELAS, TURNOS } from './horarios.js';
+import { horaArgentina, QUINIELAS, TURNOS, IDS_PROVINCIALES } from './horarios.js';
 
 function restarDias(fecha, dias) {
   const d = new Date(`${fecha}T12:00:00Z`);
@@ -60,7 +60,7 @@ const avisos = crearAvisos();
 const vigilancia = crearVigilancia({ base: { alertaNueva }, enviar: (datos) => avisos.avisarAdmins(datos) });
 const pro = crearPro();
 const cacheEstadisticas = new Map(); // "quiniela|dias|fecha" -> datos (se borra cuando llega un sorteo)
-const IDS_ESTADISTICAS = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios', 'mendoza', 'montevideo'];
+const IDS_ESTADISTICAS = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios', 'mendoza', 'montevideo', ...IDS_PROVINCIALES];
 
 const ciclo = crearCiclo({
   alGuardar: (s) => {
@@ -271,7 +271,7 @@ function limpiarJugadas(jugadas) {
     .map((j) => ({
       ...(j.tipo === 'redoblona' && /^\d{2}$/.test(String(j.numero2)) ? { tipo: 'redoblona', numero2: String(j.numero2), ubicacion2: String(j.ubicacion2) } : {}),
       numero: String(j.numero), ubicacion: String(j.ubicacion), fecha: j.fecha,
-      quinielas: (j.quinielas || []).map(String).slice(0, 10), turnos: (j.turnos || []).map(String).slice(0, 5),
+      quinielas: (j.quinielas || []).map(String).slice(0, 25), turnos: (j.turnos || []).map(String).slice(0, 5),
       monto: Number(j.monto) > 0 ? Number(j.monto) : null,
     }));
 }
@@ -279,7 +279,7 @@ function limpiarJugadas(jugadas) {
 function limpiarPreferencias(p = {}) {
   return {
     cabezas: p.cabezas !== false,
-    quinielas: Array.isArray(p.quinielas) ? p.quinielas.map(String).slice(0, 10) : undefined,
+    quinielas: Array.isArray(p.quinielas) ? p.quinielas.map(String).slice(0, 25) : undefined,
     recordatorio: p.recordatorio === true,
     // Números a seguir (de 2 cifras, sin repetir, como mucho 10)
     alertas: Array.isArray(p.alertas) ? [...new Set(p.alertas.map(String).filter((n) => /^\d{2}$/.test(n)))].slice(0, 10) : [],

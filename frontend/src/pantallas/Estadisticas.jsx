@@ -108,7 +108,7 @@ export default function Estadisticas() {
       {bloqueado && (
         <CandadoPro
           titulo={`Estadísticas de ${nombreQuiniela(quiniela)}, últimos ${dias} días`}
-          texto="Con Pro ves los salidores y atrasados de las 7 quinielas, de los últimos 30, 60 y 90 días. Gratis tenés Ciudad y Provincia de los últimos 30 días."
+          texto="Con Pro ves los salidores y atrasados de las 22 quinielas, de los últimos 30 días hasta 1 año. Gratis tenés Ciudad y Provincia de los últimos 30 días."
         />
       )}
       {!bloqueado && estado.error && <p className="error" role="alert">{estado.error}</p>}

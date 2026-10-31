@@ -456,3 +456,28 @@ test('Cabeza anticipada: se avisa sola y después llega el extracto completo', a
   assert.equal(listos[1].soloCabeza, false);
   assert.deepEqual(listos[1].ex.numeros, CIUDAD);
 });
+
+test('Provincias: cabeza antes que la Ciudad y después los 20 números', async () => {
+  const base = baseEnMemoria();
+  base.sorteos.set('2026-10-19|previa', { numero: 53052, fuente: 'lotba', extractos: [] });
+  const cabezas = [];
+  const agregados = [];
+  base.guardarCabeza = async (f, t, q, c) => { cabezas.push(`${t}:${q}:${c}`); return true; };
+  base.agregarExtracto = async (f, t, e) => { agregados.push(`${t}:${e.quiniela}`); return 'nuevo'; };
+  const lot = lotbaDeAPoco(53053, '2026-10-19', 'primera');
+  const f = lot.fuentes();
+  const pedidas = [];
+  f.buscarCabezasVivi = async () => [{ turno: 'matutina', quiniela: 'tucuman', cabeza: '2169' }];
+  f.buscarVivi = async (q, fecha) => { pedidas.push(q); return q === 'tucuman' ? [{ fecha, turno: 'matutina', numeros: CIUDAD }] : []; };
+  const listos = [];
+  const ciclo = crearCiclo({ base, fuentes: f, alListo: (s, x) => listos.push(`${s.turno}:${x.nuevas.join(',')}:${Boolean(x.soloCabeza)}`) });
+  // 14:10 del lunes: la Matutina de la Ciudad es a las 15:00, pero Tucumán ya sorteó
+  const r = await ciclo.tick(new Date(Date.UTC(2026, 9, 19, 17, 10)));
+  assert.deepEqual(cabezas, ['matutina:tucuman:2169']);
+  assert.ok(listos.includes('matutina:tucuman:true'));
+  assert.deepEqual(agregados.filter((x) => x.startsWith('matutina')), ['matutina:tucuman']);
+  assert.deepEqual(r.provincias, { matutina: ['tucuman'] });
+  assert.ok(listos.includes('matutina:tucuman:false'));
+  await ciclo.tick(new Date(Date.UTC(2026, 9, 19, 17, 11)));
+  assert.equal(pedidas.filter((q) => q === 'tucuman').length, 1); // no la vuelve a pedir
+});

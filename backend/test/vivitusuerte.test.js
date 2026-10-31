@@ -28,3 +28,11 @@ test('Lee las cabezas sueltas de vivitusuerte (solo las de 4 cifras)', async () 
   assert.deepEqual(interpretarCabezasVivi({ datos: [{ id: 3, momento_3: '9999' }] }), [{ turno: 'vespertina', quiniela: 'santafe', cabeza: '9999' }]);
   assert.deepEqual(interpretarCabezasVivi(null), []);
 });
+
+test('Provincias: nombres en vivitusuerte y cabezas del día', async () => {
+  const { SLUGS_VIVI, interpretarCabezasVivi } = await import('../src/fuentes/vivitusuerte.js');
+  assert.equal(SLUGS_VIVI.sanluis, 'san%2Bluis');
+  assert.equal(SLUGS_VIVI.tucuman, 'tucuman');
+  const r = interpretarCabezasVivi({ datos: { 15: { momento_2: '2169' }, 34: { momento_5: '6016' }, 12: { momento_1: '----' } } });
+  assert.deepEqual(r, [{ turno: 'matutina', quiniela: 'tucuman', cabeza: '2169' }, { turno: 'previa', quiniela: 'rionegro', cabeza: '6016' }]);
+});

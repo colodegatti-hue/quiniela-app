@@ -26,7 +26,9 @@ const MAX_POR_CICLO = 12;      // sorteos oficiales a recuperar por llamada
 const RESPALDO_MIN = 15;       // minutos de espera antes de usar el respaldo
 const VENTANA_MIN = 180;       // minutos después del sorteo en que se sigue mirando
 const SALTO_MIN = 30;          // si falta un turno hace +30 min, probar número siguiente
-const MAX_HISTORIAL = 8;       // sorteos viejos a completar por llamada (historial)
+const MAX_HISTORIAL = 8;
+const ANTES_MIN = 150;          // las provincias pueden sortear hasta 2 h y media antes que la Ciudad
+const MAX_PROVINCIAS = 6;       // pizarras de provincias a pedir por llamada       // sorteos viejos a completar por llamada (historial)
 const COMPLETAR_MIN = 150;     // hasta cuántos minutos después del sorteo se sigue completando
 
 const PRINCIPALES = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios', 'mendoza'];
@@ -34,6 +36,12 @@ const PRINCIPALES = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios', '
 export function quinielasEsperadas(turno, fuente) {
   // Montevideo solo viene de la Lotería, en Matutina y Nocturna
   return fuente === 'lotba' && (turno === 'matutina' || turno === 'nocturna') ? [...PRINCIPALES, 'montevideo'] : PRINCIPALES;
+}
+
+function restarUnDia(fecha) {
+  const d = new Date(`${fecha}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }
 
 export function crearCiclo(opciones = {}) {
@@ -52,6 +60,8 @@ export function crearCiclo(opciones = {}) {
   const esperadas = opciones.quinielasEsperadas ?? quinielasEsperadas;
   // Desde qué n.º de sorteo se quiere tener historial completo (0 = no completar)
   const historialDesde = opciones.historialDesde ?? Number(process.env.HISTORIAL_DESDE || 0);
+  // Desde qué fecha completar las provincias hacia atrás (vacío = no completar)
+  const provinciasDesde = opciones.provinciasDesde ?? (process.env.PROVINCIAS_DESDE || '');
 
   let estado = null;
   let enCurso = null;
@@ -81,6 +91,9 @@ export function crearCiclo(opciones = {}) {
         }
       }
     }
+    estado.provinciasViejas = provinciasDesde && base.provinciasFaltantes && (horarios.IDS_PROVINCIALES ?? []).length
+      ? await base.provinciasFaltantes(provinciasDesde, restarUnDia(fecha), horarios.IDS_PROVINCIALES)
+      : [];
     estado.faltantes = historialDesde && base.numerosFaltantes && estado.ultimoNumero
       ? await base.numerosFaltantes(historialDesde, estado.ultimoNumero)
       : [];
@@ -286,16 +299,23 @@ export function crearCiclo(opciones = {}) {
 
     // ---- 3d. Cabezas sueltas: si de una quiniela todavía no están los 20 números pero ya se
     // conoce la cabeza, se guarda y se avisa ya (el extracto completo la reemplaza después).
+    // Incluye las provincias, que pueden sortear antes que la Ciudad.
+    const provinciales = horarios.IDS_PROVINCIALES ?? [];
+    const deTurno = (t) => [...esperadas(t, 'lotba'), ...provinciales];
+    const enVentana = horarios.TURNOS.map((x) => x.id)
+      .filter((t) => minutosDesde(t) >= -ANTES_MIN && minutosDesde(t) <= VENTANA_MIN && horarios.horaArgentina(ahora).diaSemana !== 0);
+    let cabezasDelDia = null;
+    const traerCabezas = async () => (cabezasDelDia ??= await fuentes.buscarCabezasVivi(ar.fecha));
     if (fuentes.buscarCabezasVivi && base.guardarCabeza) {
-      const conFaltantes = sorteados.filter((t) => minutosDesde(t) <= VENTANA_MIN && esperadas(t, 'lotba')
+      const conFaltantes = enVentana.filter((t) => deTurno(t)
         .some((q) => !(estado.vistas[t] ?? []).includes(q) && !(estado.cabezasHoy[t] ?? []).includes(q)));
       if (conFaltantes.length) {
         try {
-          const cabezas = await fuentes.buscarCabezasVivi(ar.fecha);
+          const cabezas = await traerCabezas();
           for (const t of conFaltantes) {
             const nuevas = [];
             for (const c of cabezas.filter((x) => x.turno === t)) {
-              if (!esperadas(t, 'lotba').includes(c.quiniela) || (estado.vistas[t] ?? []).includes(c.quiniela) || (estado.cabezasHoy[t] ?? []).includes(c.quiniela)) continue;
+              if (!deTurno(t).includes(c.quiniela) || (estado.vistas[t] ?? []).includes(c.quiniela) || (estado.cabezasHoy[t] ?? []).includes(c.quiniela)) continue;
               await base.guardarCabeza(ar.fecha, t, c.quiniela, c.cabeza, 'vivitusuerte');
               estado.cabezasHoy[t] = [...(estado.cabezasHoy[t] ?? []), c.quiniela];
               estado.extractosHoy[t] = { ...(estado.extractosHoy[t] ?? {}), [c.quiniela]: { quiniela: c.quiniela, numeros: [c.cabeza, ...Array(19).fill('')], letras: null, parcial: true } };
@@ -311,6 +331,47 @@ export function crearCiclo(opciones = {}) {
         } catch (e) {
           resumen.errores.push(`vivitusuerte (cabezas): ${e.message}`);
         }
+      }
+    }
+
+    // ---- 3e. Provincias: cuando ya se conoce la cabeza, traer los 20 números
+    if (fuentes.buscarVivi && base.agregarExtracto && provinciales.length) {
+      let pedidas = 0;
+      for (const t of enVentana) {
+        const juntas = [];
+        for (const q of provinciales) {
+          if ((estado.vistas[t] ?? []).includes(q) || !(estado.cabezasHoy[t] ?? []).includes(q) || pedidas >= MAX_PROVINCIAS) continue;
+          pedidas++;
+          try {
+            const x = (await fuentes.buscarVivi(q, ar.fecha)).find((p) => p.fecha === ar.fecha && p.turno === t);
+            if (!x) continue;
+            const extracto = { quiniela: q, numeros: x.numeros, letras: null };
+            const res = await base.agregarExtracto(ar.fecha, t, extracto, 'quinieleando');
+            if (res === 'omitido') { estado.vistas[t] = [...new Set([...(estado.vistas[t] ?? []), q])]; continue; }
+            resumen.provincias = { ...(resumen.provincias ?? {}), [t]: [...(resumen.provincias?.[t] ?? []), q] };
+            juntas.push(extracto);
+            alGuardar({ fecha: ar.fecha, turno: t, numero: null, fuente: 'quinieleando', extractos: [extracto] }, res);
+          } catch (e) {
+            resumen.errores.push(`vivitusuerte (${q}): ${e.message}`);
+          }
+        }
+        if (juntas.length) sumarAlDia({ fecha: ar.fecha, turno: t, numero: null, fuente: 'quinieleando', extractos: juntas }, juntas.map((e) => e.quiniela));
+      }
+    }
+
+    // ---- 4b. Provincias hacia atrás: un día de una provincia por llamada (trae los 5 turnos)
+    if (estado.provinciasViejas?.length && fuentes.buscarVivi && base.agregarExtracto) {
+      const p = estado.provinciasViejas.shift();
+      try {
+        const turnos = await fuentes.buscarVivi(p.quiniela, p.fecha);
+        let n = 0;
+        for (const x of turnos.filter((y) => y.fecha === p.fecha)) {
+          const res = await base.agregarExtracto(p.fecha, x.turno, { quiniela: p.quiniela, numeros: x.numeros, letras: null }, 'quinieleando');
+          if (res !== 'omitido') n++;
+        }
+        resumen.provinciasViejas = { [`${p.quiniela} ${p.fecha}`]: n, quedan: estado.provinciasViejas.length };
+      } catch (e) {
+        resumen.errores.push(`provincias viejas (${p.quiniela} ${p.fecha}): ${e.message}`);
       }
     }
 

@@ -23,6 +23,27 @@ export const QUINIELAS = [
 ];
 // Montevideo también llega desde la Lotería (Matutina y Nocturna), pero no tiene respaldo.
 
+// Quinielas provinciales (solo desde vivitusuerte: 20 números y cabezas del día).
+// vivi = nombre en vivitusuerte (los de dos palabras van con %2B); cabeza = id en "cabezas del día"
+export const PROVINCIALES = [
+  { id: 'corrientes', nombre: 'Corrientes', vivi: 'corrientes', cabeza: 8 },
+  { id: 'chaco', nombre: 'Chaco', vivi: 'chaco', cabeza: 9 },
+  { id: 'santiago', nombre: 'Santiago del Estero', vivi: 'santiago', cabeza: 10 },
+  { id: 'neuquen', nombre: 'Neuquén', vivi: 'neuquen', cabeza: 11 },
+  { id: 'sanluis', nombre: 'San Luis', vivi: 'san%2Bluis', cabeza: 12 },
+  { id: 'salta', nombre: 'Salta', vivi: 'salta', cabeza: 13 },
+  { id: 'jujuy', nombre: 'Jujuy', vivi: 'jujuy', cabeza: 14 },
+  { id: 'tucuman', nombre: 'Tucumán', vivi: 'tucuman', cabeza: 15 },
+  { id: 'chubut', nombre: 'Chubut', vivi: 'chubut', cabeza: 16 },
+  { id: 'formosa', nombre: 'Formosa', vivi: 'formosa', cabeza: 17 },
+  { id: 'misiones', nombre: 'Misiones', vivi: 'misiones', cabeza: 18 },
+  { id: 'catamarca', nombre: 'Catamarca', vivi: 'catamarca', cabeza: 19 },
+  { id: 'sanjuan', nombre: 'San Juan', vivi: 'san%2Bjuan', cabeza: 20 },
+  { id: 'larioja', nombre: 'La Rioja', vivi: 'la%2Brioja', cabeza: 21 },
+  { id: 'rionegro', nombre: 'Río Negro', vivi: 'rio%2Bnegro', cabeza: 34 },
+];
+export const IDS_PROVINCIALES = PROVINCIALES.map((q) => q.id);
+
 export const IDS_TURNOS = TURNOS.map((t) => t.id);
 export const IDS_QUINIELAS = QUINIELAS.map((q) => q.id);
 

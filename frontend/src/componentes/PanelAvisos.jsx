@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { QUINIELAS } from '../util/datos.js';
+import { PRINCIPALES, PROVINCIALES } from '../util/datos.js';
 import { usePro } from '../util/pro.js';
 import {
   soporteAvisos, suscripcionActual, activarAvisos, desactivarAvisos, cambiarPreferencias, avisoDePrueba, cargarPreferencias,
@@ -68,6 +68,7 @@ export default function PanelAvisos() {
   const [activos, setActivos] = useState(null); // null = revisando
   const [prefs, setPrefs] = useState(cargarPreferencias);
   const [ocupado, setOcupado] = useState(false);
+  const [masProvincias, setMasProvincias] = useState(false);
   const [mensaje, setMensaje] = useState(null);
   const soporte = soporteAvisos();
 
@@ -124,7 +125,7 @@ export default function PanelAvisos() {
           </label>
           {prefs.cabezas && (
             <div className="opciones">
-              {QUINIELAS.map((q) => {
+              {[...PRINCIPALES, ...(masProvincias || prefs.quinielas.some((x) => PROVINCIALES.some((p) => p.id === x)) ? PROVINCIALES : [])].map((q) => {
                 const elegida = prefs.quinielas.includes(q.id);
                 return (
                   <button
@@ -138,6 +139,7 @@ export default function PanelAvisos() {
                   </button>
                 );
               })}
+              {!masProvincias && !prefs.quinielas.some((x) => PROVINCIALES.some((p) => p.id === x)) && <button type="button" className="enlace" onClick={() => setMasProvincias(true)}>+ Más provincias</button>}
             </div>
           )}
           <label className="interruptor">

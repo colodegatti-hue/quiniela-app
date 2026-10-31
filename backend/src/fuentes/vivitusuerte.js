@@ -4,6 +4,8 @@
 // Se usa solo para completar quinielas que todavía no llegaron por la vía
 // oficial; cuando llega el dato oficial, lo reemplaza.
 // =====================================================================
+import { PROVINCIALES } from '../horarios.js';
+
 const URL_BASE = 'https://vivitusuerte.com/api/juegos/pizarras';
 const NAVEGADOR = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36';
 
@@ -16,6 +18,7 @@ export const SLUGS_VIVI = {
   entrerios: 'entre+rios',
   mendoza: 'mendoza',
   montevideo: 'montevideo',
+  ...Object.fromEntries(PROVINCIALES.map((q) => [q.id, q.vivi])),
 };
 
 // "momento" del sitio -> turno de la app
@@ -54,7 +57,7 @@ export async function buscarVivi(quiniela, fecha, { timeoutMs = 10000 } = {}) {
 }
 
 // Cabezas del día de todas las quinielas (aparecen antes que los 20 números)
-const IDS_VIVI = { 1: 'ciudad', 2: 'provincia', 3: 'santafe', 7: 'cordoba', 5: 'entrerios', 6: 'mendoza', 4: 'montevideo' };
+const IDS_VIVI = { 1: 'ciudad', 2: 'provincia', 3: 'santafe', 7: 'cordoba', 5: 'entrerios', 6: 'mendoza', 4: 'montevideo', ...Object.fromEntries(PROVINCIALES.map((q) => [q.cabeza, q.id])) };
 
 // Devuelve [{ turno, quiniela, cabeza }] solo con cabezas de 4 cifras
 export function interpretarCabezasVivi(json) {

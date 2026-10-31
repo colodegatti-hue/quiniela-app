@@ -662,3 +662,5 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
   position: fixed; left: 1rem; right: 1rem; top: calc(4rem + env(safe-area-inset-top)); z-index: 30; margin: 0;
   background: var(--superficie); color: var(--tinta); border: 2px solid var(--rojo); border-radius: var(--radio); padding: 0.8rem 1rem;
 }
+.elegir-quinielas { display: block; margin: 0.6rem 0 0; }
+.elegir-quinielas-panel { margin-top: 0.8rem; }

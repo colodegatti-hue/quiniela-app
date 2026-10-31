@@ -602,3 +602,17 @@ export async function esProDispositivo(codigo, dispositivo) {
     'select 1 from licencias where codigo = $1 and vence > now() and $2 = any(dispositivos)', [codigo, dispositivo]);
   return r.rowCount > 0;
 }
+
+// Días (lunes a sábado) desde "desde" hasta ayer en los que a una provincia le falta todo el día
+export async function provinciasFaltantes(desde, hasta, quinielas) {
+  const r = await db().query(
+    `select to_char(d::date, 'YYYY-MM-DD') as fecha, q as quiniela
+       from generate_series($1::date, $2::date, '1 day') d
+       cross join unnest($3::text[]) q
+      where extract(dow from d) <> 0
+        and not exists (select 1 from extractos e where e.fecha = d::date and e.quiniela = q)
+      order by d desc, q`,
+    [desde, hasta, quinielas],
+  );
+  return r.rows;
+}

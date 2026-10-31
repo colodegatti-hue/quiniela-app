@@ -309,3 +309,11 @@ test('Base real: Pro de las alertas solo si el teléfono está vinculado al cód
   assert.equal((await db.buscarSuscripcion('https://push.example/ajeno')).pro, true);
   assert.equal(await db.esProDispositivo('765111', tel), true);
 });
+
+test('Base real: días de provincias que faltan', opciones, async () => {
+  // 2026-10-11 es domingo (no cuenta)
+  const r = await db.provinciasFaltantes('2026-10-10', '2026-10-12', ['tucuman']);
+  assert.deepEqual(r.map((x) => x.fecha), ['2026-10-12', '2026-10-10']);
+  await db.agregarExtracto('2026-10-12', 'matutina', { quiniela: 'tucuman', numeros: MATUTINA_53009.ciudad, letras: null }, 'quinieleando');
+  assert.deepEqual((await db.provinciasFaltantes('2026-10-10', '2026-10-12', ['tucuman'])).map((x) => x.fecha), ['2026-10-10']);
+});

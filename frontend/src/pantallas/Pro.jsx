@@ -4,7 +4,7 @@ import { formatoPesos } from '../util/fechas.js';
 import { esPlay } from '../util/plataforma.js';
 
 const BENEFICIOS = [
-  ['Estadísticas completas', 'Salidores y atrasados de las 7 quinielas, de los últimos 30 días hasta 1 año.'],
+  ['Estadísticas completas', 'Salidores y atrasados de las 22 quinielas, de los últimos 30 días hasta 1 año.'],
   ['Alertas de tus números', 'Te avisamos al instante cuando sale el número que seguís, en cualquier quiniela.'],
 ];
 
