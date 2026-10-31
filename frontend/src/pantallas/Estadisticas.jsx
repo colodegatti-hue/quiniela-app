@@ -7,7 +7,7 @@ import { suenoDe } from '../util/suenos.js';
 import { usePro, GRATIS } from '../util/pro.js';
 import CandadoPro from '../componentes/CandadoPro.jsx';
 
-const PERIODOS = [30, 60, 90];
+const PERIODOS = [30, 60, 90, 180, 365];
 const CLAVE = 'quiniela.estadisticas.v1';
 
 function leerFiltros() {
