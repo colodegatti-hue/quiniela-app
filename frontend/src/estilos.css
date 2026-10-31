@@ -667,3 +667,14 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 .compartir-app { margin: 1.4rem 0 0.4rem; text-align: center; }
 .compartir-app .tenue { margin: 0.4rem 0 0; font-size: 0.9rem; }
 .compartir-app.compacto { margin: 0 0 1rem; text-align: left; }
+
+/* Números: elegir la quiniela con un desplegable */
+.elegir-quiniela { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; }
+.elegir-quiniela span { font-weight: 600; }
+.elegir-quiniela select {
+  flex: 1; min-width: 0; border: 1px solid var(--linea); border-radius: 10px; background: var(--superficie);
+  padding: 0.55rem 0.7rem; font-weight: 600; font-size: 1.05rem;
+}
+/* Resultados: el extracto que tocó el usuario se marca un momento */
+.extracto { scroll-margin-top: 1rem; transition: box-shadow 0.4s; }
+.extracto.destacado { box-shadow: 0 0 0 3px var(--marcador); }

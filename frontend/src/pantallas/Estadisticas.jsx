@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import PestanasNumeros from '../componentes/PestanasNumeros.jsx';
-import { QUINIELAS, nombreQuiniela, turnoPorId } from '../util/datos.js';
+import { PRINCIPALES, PROVINCIALES, nombreQuiniela, turnoPorId } from '../util/datos.js';
 import { fechaCorta } from '../util/fechas.js';
 import { obtenerEstadisticas, salidores, atrasados, campos, intensidad } from '../util/estadisticas.js';
 import { suenoDe } from '../util/suenos.js';
@@ -87,13 +87,17 @@ export default function Estadisticas() {
       <PestanasNumeros actual="estadisticas" />
 
       <div className="filtros">
-        <div className="opciones desplazable" role="group" aria-label="Quiniela">
-          {QUINIELAS.map((q) => (
-            <button key={q.id} type="button" className={`opcion${quiniela === q.id ? ' activa' : ''}`} aria-pressed={quiniela === q.id} onClick={() => cambiar('quiniela', q.id)}>
-              {q.nombre}{!pro && !GRATIS.quinielas.includes(q.id) && <span className="etiqueta-pro">Pro</span>}
-            </button>
-          ))}
-        </div>
+        <label className="elegir-quiniela">
+          <span>Quiniela</span>
+          <select value={quiniela} onChange={(e) => cambiar('quiniela', e.target.value)}>
+            <optgroup label="Principales">
+              {PRINCIPALES.map((q) => <option key={q.id} value={q.id}>{q.completo}{!pro && !GRATIS.quinielas.includes(q.id) ? ' (Pro)' : ''}</option>)}
+            </optgroup>
+            <optgroup label="Más provincias">
+              {PROVINCIALES.map((q) => <option key={q.id} value={q.id}>{q.completo}{!pro ? ' (Pro)' : ''}</option>)}
+            </optgroup>
+          </select>
+        </label>
         <div className="filtros-fila">
           <div className="segmentado" role="group" aria-label="Ubicación">
             <button type="button" aria-pressed={donde === 'cabeza'} onClick={() => cambiar('donde', 'cabeza')}>A la cabeza</button>

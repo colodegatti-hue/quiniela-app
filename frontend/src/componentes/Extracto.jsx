@@ -2,7 +2,7 @@
 // en dos columnas (1 a 10 y 11 a 20), como el extracto oficial.
 import { suenoDe } from '../util/suenos.js';
 
-export default function Extracto({ nombre, numeros, resaltadas = new Set(), alCompartir }) {
+export default function Extracto({ id, destacado = false, nombre, numeros, resaltadas = new Set(), alCompartir }) {
   const columna = (desde) =>
     numeros.slice(desde, desde + 10).map((n, i) => {
       const pos = desde + i + 1;
@@ -16,7 +16,7 @@ export default function Extracto({ nombre, numeros, resaltadas = new Set(), alCo
     });
 
   return (
-    <article className="extracto">
+    <article id={id} className={`extracto${destacado ? ' destacado' : ''}`}>
       <header className="extracto-cabecera">
         <div>
           <h3>{nombre}</h3>

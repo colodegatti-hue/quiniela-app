@@ -112,10 +112,22 @@ export default function Resultados() {
   const esHoy = fecha === hoy();
   const enVivo = turnosEnVivo(fecha, datos);
   const jugadasCabeza = (t, q, n) => ubicacionesJugadas(jugadas, fecha, t, q, [n, ...Array(19).fill('')]).has(1);
-  function elegirTurno(t) {
+  // Al tocar un número de la tabla: abre ese turno y lleva a esa quiniela
+  const [foco, setFoco] = useState(null);
+  function elegirTurno(t, q = null) {
     setTurnoElegido(t);
+    setFoco(q);
     cambiarVista('turno');
   }
+  useEffect(() => {
+    if (!foco || vista !== 'turno') return undefined;
+    const id = setTimeout(() => {
+      const el = document.getElementById(`extracto-${foco}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+    const fin = setTimeout(() => setFoco(null), 2500);
+    return () => { clearTimeout(id); clearTimeout(fin); };
+  }, [foco, vista, turno]);
 
   return (
     <section className="pantalla">
@@ -173,7 +185,7 @@ export default function Resultados() {
                   type="button"
                   className={`turno${t.id === turno ? ' activo' : ''}${salio ? ' salio' : ''}`}
                   aria-pressed={t.id === turno}
-                  onClick={() => setTurnoElegido(t.id)}
+                  onClick={() => { setTurnoElegido(t.id); setFoco(null); }}
                 >
                   <span className="turno-nombre">{t.nombre}{enVivo.has(t.id) && <span className="vivo-punto" aria-label="en vivo" />}</span>
                   <span className="turno-hora">{t.hora}</span>
@@ -224,6 +236,8 @@ export default function Resultados() {
                 return (
                   <Extracto
                     key={q.id}
+                    id={`extracto-${q.id}`}
+                    destacado={foco === q.id}
                     nombre={q.completo}
                     numeros={numeros}
                     resaltadas={ubicacionesJugadas(jugadas, fecha, turno, q.id, numeros)}
