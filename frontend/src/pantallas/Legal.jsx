@@ -46,6 +46,12 @@ export default function Legal() {
           navegador de cada consulta. Los usamos solo para que la app funcione y para frenar abusos, y no los cruzamos
           con nada.
         </li>
+        <li>
+          <strong>Publicidad:</strong> en la versión gratuita de la web mostramos anuncios de Google AdSense. Google y sus
+          socios pueden usar cookies para mostrar anuncios según tus visitas a este y otros sitios. Podés desactivar los
+          anuncios personalizados en <span className="seleccionable">adssettings.google.com</span>. Los usuarios Pro no ven
+          publicidad.
+        </li>
       </ul>
       <p>
         No vendemos ni compartimos tus datos con terceros, salvo los proveedores que hacen funcionar la app
