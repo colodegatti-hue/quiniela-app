@@ -12,7 +12,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       includeAssets: ['favicon.svg', 'iconos/apple-touch-icon.png'],
+      // .json: Render sirve .webmanifest como binario y PWABuilder/Play no lo reconocen
+      manifestFilename: 'manifest.json',
       manifest: {
+        id: '/',
         name: 'Quiniela al Toque: Resultados',
         short_name: 'Quiniela al Toque',
         description: 'Resultados de quiniela de Argentina al instante. Controlá tus jugadas y números.',
