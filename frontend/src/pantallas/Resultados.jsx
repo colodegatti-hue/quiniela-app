@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import Extracto from '../componentes/Extracto.jsx';
 import TablaDelDia from '../componentes/TablaDelDia.jsx';
-import { QUINIELAS, TURNOS, obtenerResultados, extractoDe, sortea } from '../util/datos.js';
+import { PRINCIPALES, TURNOS, obtenerResultados, extractoDe, sortea } from '../util/datos.js';
+import ElegirQuinielas, { useQuinielasVisibles } from '../componentes/ElegirQuinielas.jsx';
 import { hoy, sumarDias, diaSemana, fechaLarga, yaEsLaHora, ahoraArgentina, minutosDelDia } from '../util/fechas.js';
 import { cargarJugadas } from '../util/jugadas.js';
 import { UBICACIONES } from '../../../shared/premios.js';
@@ -32,13 +33,15 @@ export function turnosEnVivo(fecha, datos, instante = new Date()) {
   for (const t of TURNOS) {
     const pasaron = a.minutos - minutosDelDia(t.hora);
     if (pasaron < 0 || pasaron > 90) continue;
-    const faltan = QUINIELAS.filter((q) => sortea(q.id, t.id)).some((q) => !extractoDe(datos, t.id, q.id));
+    // Solo las principales: algunas provincias no sortean todos los turnos
+    const faltan = PRINCIPALES.filter((q) => sortea(q.id, t.id)).some((q) => !extractoDe(datos, t.id, q.id));
     if (faltan) r.add(t.id);
   }
   return r;
 }
 
 export default function Resultados() {
+  const visibles = useQuinielasVisibles();
   const [fecha, setFecha] = useState(() => (diaSemana(hoy()) === 0 ? sumarDias(hoy(), -1) : hoy()));
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState(null);
@@ -153,7 +156,8 @@ export default function Resultados() {
 
           {vista === 'dia' && datos && !error && (
             <>
-              <TablaDelDia datos={datos} enVivo={enVivo} jugadasCabeza={jugadasCabeza} alElegir={elegirTurno} />
+              <TablaDelDia datos={datos} enVivo={enVivo} jugadasCabeza={jugadasCabeza} alElegir={elegirTurno} quinielas={visibles} />
+              <ElegirQuinielas />
               <p className="nota">Tocá un número para ver los 20 de ese turno. Las quinielas van apareciendo a medida que cada lotería las publica.</p>
             </>
           )}
@@ -213,7 +217,7 @@ export default function Resultados() {
 
           {datos && salieron.has(turno) && (
             <div className="extractos">
-              {QUINIELAS.map((q) => {
+              {visibles.map((q) => {
                 const numeros = extractoDe(datos, turno, q.id);
                 if (!numeros) return null;
                 return (
@@ -227,6 +231,7 @@ export default function Resultados() {
                 );
               })}
               {enVivo.has(turno) && <p className="nota">Faltan quinielas de este turno: aparecen solas apenas se publican.</p>}
+              <ElegirQuinielas />
               <p className="nota">
                 Resultados informativos: antes de cobrar, verificá con el extracto oficial de cada lotería.
               </p>

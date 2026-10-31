@@ -1,10 +1,10 @@
 // Todo el día en una pantalla: quinielas en filas, turnos en columnas (solo la cabeza)
-import { QUINIELAS, TURNOS, extractoDe, sortea } from '../util/datos.js';
+import { TURNOS, extractoDe, sortea } from '../util/datos.js';
 import { suenoDe } from '../util/suenos.js';
 
-const CORTOS = { ciudad: 'Ciudad', provincia: 'Provincia', santafe: 'Santa Fe', cordoba: 'Córdoba', entrerios: 'E. Ríos', mendoza: 'Mendoza', montevideo: 'Montev.' };
+const CORTOS = { ciudad: 'Ciudad', provincia: 'Provincia', santafe: 'Santa Fe', cordoba: 'Córdoba', entrerios: 'E. Ríos', mendoza: 'Mendoza', montevideo: 'Montev.', corrientes: 'Corrient.', santiago: 'Santiago', catamarca: 'Catamar.', sanluis: 'S. Luis', sanjuan: 'S. Juan', larioja: 'La Rioja', rionegro: 'R. Negro' };
 
-export default function TablaDelDia({ datos, enVivo, jugadasCabeza, alElegir }) {
+export default function TablaDelDia({ datos, enVivo, jugadasCabeza, alElegir, quinielas }) {
   return (
     <div className="tabla-dia" role="table" aria-label="Cabezas de todos los turnos">
       <div className="td-fila td-cabecera" role="row">
@@ -16,9 +16,9 @@ export default function TablaDelDia({ datos, enVivo, jugadasCabeza, alElegir }) 
           </button>
         ))}
       </div>
-      {QUINIELAS.map((q) => (
+      {quinielas.map((q) => (
         <div key={q.id} className="td-fila" role="row">
-          <span className="td-quiniela" role="rowheader">{CORTOS[q.id]}</span>
+          <span className="td-quiniela" role="rowheader">{CORTOS[q.id] ?? q.nombre}</span>
           {TURNOS.map((t) => {
             if (!sortea(q.id, t.id)) return <span key={t.id} className="td-celda td-no" role="cell" aria-label="No sortea">·</span>;
             const n = extractoDe(datos, t.id, q.id)?.[0];

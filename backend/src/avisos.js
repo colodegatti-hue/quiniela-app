@@ -10,12 +10,13 @@
 import webpush from 'web-push';
 import { evaluarGuardada, UBICACIONES } from '../../shared/premios.js';
 import { suenoDe } from '../../shared/suenos.js';
-import { TURNOS, horaArgentina, minutosDelDia } from './horarios.js';
+import { TURNOS, horaArgentina, minutosDelDia, PROVINCIALES } from './horarios.js';
 import * as baseReal from './db.js';
 
 const NOMBRES = {
   ciudad: 'Ciudad', provincia: 'Provincia', santafe: 'Santa Fe', cordoba: 'Córdoba',
   entrerios: 'Entre Ríos', mendoza: 'Mendoza', montevideo: 'Montevideo',
+  ...Object.fromEntries(PROVINCIALES.map((q) => [q.id, q.id === 'santiago' ? 'Santiago' : q.nombre])),
 };
 const ORDEN = Object.keys(NOMBRES);
 const QUINIELAS_POR_DEFECTO = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios'];

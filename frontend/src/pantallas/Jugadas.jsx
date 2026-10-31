@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import PanelAvisos from '../componentes/PanelAvisos.jsx';
 import { sincronizarJugadas } from '../util/avisos.js';
-import { QUINIELAS, TURNOS, nombreQuiniela, turnoPorId, obtenerResultados } from '../util/datos.js';
+import { PRINCIPALES, PROVINCIALES, TURNOS, nombreQuiniela, turnoPorId, obtenerResultados } from '../util/datos.js';
 import { hoy, sumarDias, fechaCorta, formatoPesos, yaEsLaHora, diaSemana } from '../util/fechas.js';
 import {
   UBICACIONES, cargarJugadas, guardarJugadas, nuevaJugada, validarJugada, controlarJugada, resumenJugada,
@@ -28,6 +28,7 @@ function alternar(lista, valor) {
 function Formulario({ alGuardar, alCancelar }) {
   const [f, setF] = useState(FORM_INICIAL);
   const [error, setError] = useState(null);
+  const [masProvincias, setMasProvincias] = useState(false);
   const cambiar = (campo, valor) => setF((x) => ({ ...x, [campo]: valor }));
 
   function enviar(e) {
@@ -96,12 +97,13 @@ function Formulario({ alGuardar, alCancelar }) {
       <fieldset className="campo">
         <legend>Quinielas</legend>
         <div className="opciones">
-          {QUINIELAS.map((q) => (
+          {[...PRINCIPALES, ...(masProvincias ? PROVINCIALES : [])].map((q) => (
             <button key={q.id} type="button" className={`opcion${f.quinielas.includes(q.id) ? ' activa' : ''}`} aria-pressed={f.quinielas.includes(q.id)} onClick={() => cambiar('quinielas', alternar(f.quinielas, q.id))}>
               {q.nombre}{q.soloTurnos && <span className="tenue"> (Matutina y Nocturna)</span>}
             </button>
           ))}
         </div>
+        {!masProvincias && <button type="button" className="enlace" onClick={() => setMasProvincias(true)}>+ Más provincias</button>}
       </fieldset>
 
       <fieldset className="campo">

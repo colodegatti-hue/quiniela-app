@@ -2,7 +2,7 @@
 // herramientas.js — Compartir resultados y calculadora de premios
 // =====================================================================
 import { TABLAS_DE_PAGO, UBICACIONES } from '../../../shared/premios.js';
-import { QUINIELAS, turnoPorId, nombreQuiniela } from './datos.js';
+import { QUINIELAS, turnoPorId, nombreQuiniela, quinielasVisibles } from './datos.js';
 import { fechaCorta } from './fechas.js';
 
 const PAGOS = TABLAS_DE_PAGO.LOTBA;
@@ -34,7 +34,7 @@ export function textoExtracto({ quiniela, turno, fecha, numeros }) {
 export function textoCabezas({ turno, fecha, resultados }) {
   const t = resultados?.turnos?.find((x) => x.turno === turno);
   if (!t) return null;
-  const lineas = QUINIELAS.filter((q) => t.quinielas[q.id]).map((q) => `${q.nombre}: ${t.quinielas[q.id].numeros[0]}`);
+  const lineas = quinielasVisibles().filter((q) => t.quinielas[q.id]).map((q) => `${q.nombre}: ${t.quinielas[q.id].numeros[0]}`);
   return [`Cabezas de ${turnoPorId(turno).nombre}, ${fechaCorta(fecha)}`, ...lineas, '', `Los 20 números: ${enlaceApp()}`].join('\n');
 }
 

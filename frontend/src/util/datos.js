@@ -13,7 +13,40 @@ export const QUINIELAS = [
   { id: 'entrerios', nombre: 'Entre Ríos', completo: 'Entre Ríos' },
   { id: 'mendoza', nombre: 'Mendoza', completo: 'Mendoza' },
   { id: 'montevideo', nombre: 'Montevideo', completo: 'Montevideo (Uruguay)', soloTurnos: ['matutina', 'nocturna'] },
+  // Provincias (sortean en horarios parecidos; algunas no tienen todos los turnos)
+  { id: 'corrientes', nombre: 'Corrientes', completo: 'Corrientes', provincial: true },
+  { id: 'chaco', nombre: 'Chaco', completo: 'Chaco', provincial: true },
+  { id: 'santiago', nombre: 'Santiago', completo: 'Santiago del Estero', provincial: true },
+  { id: 'neuquen', nombre: 'Neuquén', completo: 'Neuquén', provincial: true },
+  { id: 'sanluis', nombre: 'San Luis', completo: 'San Luis', provincial: true },
+  { id: 'salta', nombre: 'Salta', completo: 'Salta', provincial: true },
+  { id: 'jujuy', nombre: 'Jujuy', completo: 'Jujuy', provincial: true },
+  { id: 'tucuman', nombre: 'Tucumán', completo: 'Tucumán', provincial: true },
+  { id: 'chubut', nombre: 'Chubut', completo: 'Chubut', provincial: true },
+  { id: 'formosa', nombre: 'Formosa', completo: 'Formosa', provincial: true },
+  { id: 'misiones', nombre: 'Misiones', completo: 'Misiones', provincial: true },
+  { id: 'catamarca', nombre: 'Catamarca', completo: 'Catamarca', provincial: true },
+  { id: 'sanjuan', nombre: 'San Juan', completo: 'San Juan', provincial: true },
+  { id: 'larioja', nombre: 'La Rioja', completo: 'La Rioja', provincial: true },
+  { id: 'rionegro', nombre: 'Río Negro', completo: 'Río Negro', provincial: true },
 ];
+export const PRINCIPALES = QUINIELAS.filter((q) => !q.provincial);
+export const PROVINCIALES = QUINIELAS.filter((q) => q.provincial);
+
+// Qué quinielas mostrar en Resultados (las elige cada uno; por defecto las 7 de siempre)
+const CLAVE_VER = 'quiniela.ver';
+export const EVENTO_VER = 'quiniela-ver';
+export function quinielasVisibles() {
+  try {
+    const lista = JSON.parse(localStorage.getItem(CLAVE_VER));
+    if (Array.isArray(lista) && lista.length) return QUINIELAS.filter((q) => lista.includes(q.id));
+  } catch { /* sin almacenamiento */ }
+  return PRINCIPALES;
+}
+export function guardarVisibles(ids) {
+  try { localStorage.setItem(CLAVE_VER, JSON.stringify(ids)); } catch { /* modo privado */ }
+  try { window.dispatchEvent(new Event(EVENTO_VER)); } catch { /* fuera del navegador */ }
+}
 
 // ¿Esa quiniela sortea en ese turno? (Montevideo solo en Matutina y Nocturna)
 export function sortea(quiniela, turno) {
