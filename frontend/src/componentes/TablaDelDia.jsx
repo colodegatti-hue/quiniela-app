@@ -29,7 +29,7 @@ export default function TablaDelDia({ datos, enVivo, jugadasCabeza, alElegir, qu
                 type="button"
                 role="cell"
                 className={`td-celda${n ? '' : ' td-vacia'}${marcado ? ' marcado' : ''}`}
-                onClick={() => alElegir(t.id)}
+                onClick={() => alElegir(t.id, q.id)}
                 aria-label={n ? `${q.nombre}, ${t.nombre}: ${n}, ${suenoDe(n)?.nombre}` : `${q.nombre}, ${t.nombre}: todavía no salió`}
               >
                 <span className="td-num">{n ?? '----'}</span>
