@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.coloapps.quinielaaltoque",
+        "sha256_cert_fingerprints": ["DA:8C:CA:4D:88:E2:0C:08:EA:E8:F8:A2:AC:D6:FC:CB:D1:99:B0:84:03:7D:0B:01:56:D0:4E:0F:B8:E2:4B:C0"]
+      }
+    }]
