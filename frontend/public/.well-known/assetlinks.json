@@ -3,6 +3,7 @@
       "target": {
         "namespace": "android_app",
         "package_name": "com.coloapps.quinielaaltoque",
-        "sha256_cert_fingerprints": ["DA:8C:CA:4D:88:E2:0C:08:EA:E8:F8:A2:AC:D6:FC:CB:D1:99:B0:84:03:7D:0B:01:56:D0:4E:0F:B8:E2:4B:C0"]
+        "sha256_cert_fingerprints": ["DA:8C:CA:4D:88:E2:0C:08:EA:E8:F8:A2:AC:D6:FC:CB:D1:99:B0:84:03:7D:0B:01:56:D0:4E:0F:B8:E2:4B:C0",
+          "E3:B5:78:C4:0F:64:9C:1F:B5:57:0F:78:B7:60:DB:4A:1A:88:46:D1:B1:C3:83:2F:62:74:C2:A0:FC:6E:27:F2"]
       }
     }]
