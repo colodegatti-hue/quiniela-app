@@ -58,3 +58,10 @@ export async function buscarPagos(referencia) {
 export async function obtenerPago(id) {
   return pedir(`/v1/payments/${encodeURIComponent(id)}`);
 }
+
+// Datos básicos de la cuenta del token (para saber si es de prueba o real)
+export async function cuentaMp() {
+  const u = await pedir('/users/me');
+  const etiquetas = Array.isArray(u.tags) ? u.tags : [];
+  return { id: u.id, apodo: u.nickname, pais: u.site_id, esPrueba: etiquetas.includes('test_user') || /^TESTUSER/i.test(u.nickname || '') };
+}

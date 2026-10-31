@@ -18,7 +18,7 @@ import {
 import { montarAdmin } from './admin.js';
 import { crearAvisos, pushConfigurado } from './avisos.js';
 import { crearPro, planes, codigoValido } from './pro.js';
-import { mpConfigurado, crearPreferencia } from './mercadopago.js';
+import { mpConfigurado, crearPreferencia, cuentaMp } from './mercadopago.js';
 import { crearCiclo } from './ciclo.js';
 import { horaArgentina, QUINIELAS, TURNOS } from './horarios.js';
 
@@ -430,7 +430,8 @@ app.get('/api/pro/prueba-mp', exigirClave, async (req, res) => {
       titulo: 'Prueba', precio: 10, referencia: `prueba-${Date.now()}`,
       urlVuelta: 'https://quinielaaltoque.app/', urlAvisos: 'https://api.quinielaaltoque.app/api/pro/aviso-pago',
     });
-    const r = { ok: true, preferencia: p.id, linkDePrueba: p.url.includes('sandbox') ? 'sandbox' : 'normal', tipoDeToken: (process.env.MP_ACCESS_TOKEN || '').split('-')[0] };
+    const cuenta = await cuentaMp().catch((e) => ({ error: e.message }));
+    const r = { ok: true, preferencia: p.id, linkDePrueba: p.url.includes('sandbox') ? 'sandbox' : 'normal', tipoDeToken: (process.env.MP_ACCESS_TOKEN || '').split('-')[0], cuenta };
     console.log('[pro] prueba Mercado Pago:', JSON.stringify(r));
     res.json(r);
   } catch (e) {
