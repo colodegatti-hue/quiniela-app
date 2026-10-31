@@ -186,6 +186,7 @@ app.post('/api/ping', async (req, res) => {
   pingsPorIp.set(ip, n);
   if (pingsPorIp.size > 20000) pingsPorIp.clear();
   if (n > 600) return res.status(429).json({ ok: false }); // muchos celulares comparten IP (CGNAT)
+  if (/bot|crawl|spider|mediapartners|google-|adsbot|lighthouse|headless|pwabuilder/i.test(String(req.headers['user-agent'] || ''))) return res.json({ ok: true, robot: true });
   const { d, o, e, p } = req.body || {};
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(String(d ?? ''))) return res.status(400).json({ ok: false });
   try {

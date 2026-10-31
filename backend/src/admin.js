@@ -119,6 +119,8 @@ export function montarAdmin(app, { base = baseReal, clave = () => process.env.AD
       fuente: e?.sorteosHoy?.[t.id] ?? null,
     }));
     const alertas = await base.contarDispositivosAdmin().catch(() => ({ marcados: 0, con_avisos: 0 }));
+    const d = String(req.query.d || '');
+    alertas.esteMarcado = /^[0-9a-f-]{36}$/.test(d) ? await base.esDispositivoAdmin(d).catch(() => false) : false;
     res.json({ fecha: e?.fecha ?? horaArgentina().fecha, turnos, faltan: faltantes({ vistas }), alertas });
   });
 
@@ -333,7 +335,7 @@ $('nueva').addEventListener('submit', async (e) => {
 const NQ = { ciudad: 'Ciudad', provincia: 'Provincia', santafe: 'Santa Fe', cordoba: 'Córdoba', entrerios: 'Entre Ríos', mendoza: 'Mendoza', montevideo: 'Montevideo' };
 const telefono = new URLSearchParams(location.search).get('d') || '';
 async function cargarHoy() {
-  const r = await fetch('/admin/api/hoy');
+  const r = await fetch('/admin/api/hoy' + (telefono ? '?d=' + encodeURIComponent(telefono) : ''));
   if (!r.ok) return;
   const h = await r.json();
   $('hoy').innerHTML = '<table><thead><tr><th>Turno</th><th>Llegaron</th><th>Faltan</th></tr></thead><tbody>' + h.turnos.map((t) => {
@@ -343,7 +345,7 @@ async function cargarHoy() {
   }).join('') + '</tbody></table>' + (h.faltan.length ? '<p class="error">⚠️ Atrasadas: ' + h.faltan.map((f) => f.turno + ' (' + f.quinielas.map((q) => NQ[q] || q).join(', ') + ', ' + f.minutos + ' min)').join(' · ') + '</p>' : '<p class="nota">Sin atrasos.</p>');
   const a = h.alertas;
   $('alertas-tel').innerHTML = '<b>Alertas de fallas en tu celular</b><p class="nota">' + a.marcados + ' teléfono(s) marcado(s), ' + a.con_avisos + ' con avisos activados. Si a los 40 min de un sorteo falta una quiniela, te llega un aviso.</p>'
-    + (telefono ? '<button id="marcar-tel" type="button">Recibir alertas en este teléfono</button>' : '<p class="nota">Para marcar tu celular: en la app tocá 10 veces "Quiniela al Toque" y apretá el botón que aparece acá. El celular tiene que tener los avisos activados.</p>');
+    + (telefono && a.esteMarcado ? '<p>✓ Este teléfono ya recibe las alertas.</p>' : telefono ? '<button id="marcar-tel" type="button">Recibir alertas en este teléfono</button>' : '<p class="nota">Para marcar tu celular: en la app tocá 10 veces "Quiniela al Toque" y apretá el botón que aparece acá. El celular tiene que tener los avisos activados.</p>');
   const b = $('marcar-tel');
   if (b) b.addEventListener('click', async () => {
     const y = await (await fetch('/admin/api/alertas-telefono', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dispositivo: telefono }) })).json();

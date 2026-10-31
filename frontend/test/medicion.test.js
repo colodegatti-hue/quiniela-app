@@ -31,3 +31,12 @@ test('Sin enlace: origen directo y no toca la dirección', () => {
   const mal = lugar('?ag=<script>');
   assert.equal(capturarOrigen(mal.loc, mal.historial), null);
 });
+
+test('Robots no cuentan como personas', async () => {
+  const { esRobot } = await import('../src/util/medicion.js');
+  assert.equal(esRobot({ userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/129 Mobile Safari/537.36' }), false);
+  assert.equal(esRobot({ userAgent: 'Mozilla/5.0 (compatible; Googlebot/2.1)' }), true);
+  assert.equal(esRobot({ userAgent: 'Mediapartners-Google' }), true);
+  assert.equal(esRobot({ userAgent: 'Mozilla/5.0 HeadlessChrome/129' }), true);
+  assert.equal(esRobot({ userAgent: 'Chrome', webdriver: true }), true);
+});
