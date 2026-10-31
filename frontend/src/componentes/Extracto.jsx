@@ -21,7 +21,7 @@ export default function Extracto({ id, destacado = false, nombre, numeros, resal
         <div>
           <h3>{nombre}</h3>
           {alCompartir && (
-            <button type="button" className="enlace compartir" onClick={alCompartir}>Compartir</button>
+            <button type="button" className="enlace compartir" onClick={alCompartir}>📷 Compartir</button>
           )}
         </div>
         <div className="cabeza-caja">

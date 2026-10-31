@@ -7,7 +7,8 @@ import CompartirApp from '../componentes/CompartirApp.jsx';
 import { hoy, sumarDias, diaSemana, fechaLarga, yaEsLaHora, ahoraArgentina, minutosDelDia } from '../util/fechas.js';
 import { cargarJugadas } from '../util/jugadas.js';
 import { UBICACIONES } from '../../../shared/premios.js';
-import { compartir, textoExtracto, textoCabezas } from '../util/herramientas.js';
+import { compartir, textoExtracto, textoCabezas, ENLACE_INVITACION } from '../util/herramientas.js';
+import { imagenExtracto, imagenCabezas, compartirImagen } from '../util/imagen.js';
 import useMensaje from '../componentes/useMensaje.js';
 
 // Ubicaciones a resaltar en un extracto según las jugadas guardadas
@@ -55,6 +56,16 @@ export default function Resultados() {
   function cambiarVista(v) {
     setVista(v);
     try { localStorage.setItem(CLAVE_VISTA, v); } catch { /* modo privado */ }
+  }
+
+  // Comparte como imagen (con la marca y el enlace); si algo falla, como texto
+  async function compartirComoImagen(armar, archivo, leyenda, textoRespaldo) {
+    try {
+      const r = await compartirImagen(await armar(), archivo, `${leyenda}\nMás resultados al instante: ${ENLACE_INVITACION}`);
+      if (r === 'descargado') setMensaje('Bajamos la imagen: compartila desde tu galería.');
+    } catch {
+      compartirTexto(textoRespaldo);
+    }
   }
 
   async function compartirTexto(texto) {
@@ -196,8 +207,21 @@ export default function Resultados() {
 
           {datos && salieron.has(turno) && (
             <div className="acciones-turno">
-              <button type="button" className="enlace" onClick={() => compartirTexto(textoCabezas({ turno, fecha, resultados: datos }))}>
-                Compartir las cabezas de {infoTurno.nombre}
+              <button
+                type="button"
+                className="enlace"
+                onClick={() => {
+                  const t = datos.turnos.find((x) => x.turno === turno);
+                  const filas = visibles.filter((q) => /^\d{4}$/.test(String(t?.quinielas?.[q.id]?.numeros?.[0] ?? ''))).map((q) => ({ nombre: q.nombre, numero: t.quinielas[q.id].numeros[0] }));
+                  compartirComoImagen(
+                    () => imagenCabezas({ turno: infoTurno.nombre, hora: infoTurno.hora, fecha, filas }),
+                    `cabezas-${infoTurno.id}-${fecha}.png`,
+                    `Cabezas de ${infoTurno.nombre}`,
+                    textoCabezas({ turno, fecha, resultados: datos }),
+                  );
+                }}
+              >
+                📷 Compartir las cabezas de {infoTurno.nombre}
               </button>
             </div>
           )}
@@ -241,7 +265,12 @@ export default function Resultados() {
                     nombre={q.completo}
                     numeros={numeros}
                     resaltadas={ubicacionesJugadas(jugadas, fecha, turno, q.id, numeros)}
-                    alCompartir={() => compartirTexto(textoExtracto({ quiniela: q.id, turno, fecha, numeros }))}
+                    alCompartir={() => compartirComoImagen(
+                      () => imagenExtracto({ quiniela: q.completo, turno: infoTurno.nombre, hora: infoTurno.hora, fecha, numeros }),
+                      `quiniela-${q.id}-${infoTurno.id}-${fecha}.png`,
+                      `Quiniela ${q.completo}, ${infoTurno.nombre}`,
+                      textoExtracto({ quiniela: q.id, turno, fecha, numeros }),
+                    )}
                   />
                 );
               })}
