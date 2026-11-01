@@ -17,3 +17,10 @@ test('Quiniela Plus y Poceada desde vivitusuerte (formato del 30/10/2026)', () =
   assert.equal(p.categorias[0].premio, 630028175);
   assert.equal(interpretarPozo({ fecha: '2026-10-30', ...bolillas('', N.slice(0, 19)) }, '', '2026-10-30'), null); // incompleto
 });
+
+test('Pozo con bolillas en 0 (todavía sin sortear): no se toma', async () => {
+  const { interpretarPozo } = await import('../src/fuentes/pozos.js');
+  const datos = { fecha: '2026-10-31', sorteo: '9120' };
+  for (let i = 1; i <= 20; i++) datos[`b${i}`] = '0';
+  assert.equal(interpretarPozo(datos, '', '2026-10-31'), null);
+});

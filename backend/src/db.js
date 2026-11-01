@@ -627,7 +627,7 @@ export async function esDispositivoAdmin(dispositivo) {
 export async function guardarPozo(juego, p) {
   const r = await db().query(
     `insert into pozos (juego, fecha, sorteo, numeros, categorias) values ($1, $2, $3, $4, $5)
-     on conflict (juego, fecha) do update set categorias = excluded.categorias, sorteo = coalesce(excluded.sorteo, pozos.sorteo)
+     on conflict (juego, fecha) do update set numeros = excluded.numeros, categorias = excluded.categorias, sorteo = coalesce(excluded.sorteo, pozos.sorteo)
      returning (xmax = 0) as nuevo`,
     [juego, p.fecha, p.sorteo, p.numeros, JSON.stringify(p.categorias ?? [])],
   );
