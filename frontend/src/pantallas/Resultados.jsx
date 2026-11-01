@@ -6,7 +6,7 @@ import ElegirQuinielas, { useQuinielasVisibles } from '../componentes/ElegirQuin
 import CompartirApp from '../componentes/CompartirApp.jsx';
 import Pozos from '../componentes/Pozos.jsx';
 import { hoy, sumarDias, diaSemana, fechaLarga, yaEsLaHora, ahoraArgentina, minutosDelDia } from '../util/fechas.js';
-import { cargarJugadas } from '../util/jugadas.js';
+import { cargarJugadas, jugadaAplica } from '../util/jugadas.js';
 import { UBICACIONES } from '../../../shared/premios.js';
 import { compartir, textoExtracto, textoCabezas, ENLACE_INVITACION } from '../util/herramientas.js';
 import { imagenExtracto, imagenCabezas, compartirImagen } from '../util/imagen.js';
@@ -16,7 +16,7 @@ import useMensaje from '../componentes/useMensaje.js';
 function ubicacionesJugadas(jugadas, fecha, turno, quiniela, numeros) {
   const set = new Set();
   for (const j of jugadas) {
-    if (j.fecha !== fecha || !j.turnos.includes(turno) || !j.quinielas.includes(quiniela)) continue;
+    if (!jugadaAplica(j, fecha) || !j.turnos.includes(turno) || !j.quinielas.includes(quiniela)) continue;
     const { desde, hasta } = UBICACIONES[j.ubicacion];
     for (let p = desde; p <= hasta; p++) if (numeros[p - 1].endsWith(j.numero)) set.add(p);
   }

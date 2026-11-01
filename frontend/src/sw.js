@@ -28,7 +28,7 @@ self.addEventListener('push', (evento) => {
       // Si es una actualización del mismo aviso (llegaron más quinielas), no vuelve a sonar
       renotify: !datos.silencioso,
       silent: Boolean(datos.silencioso),
-      data: { url: datos.url || '/#/resultados' },
+      data: { url: datos.url || '/#/resultados', premio: Boolean(datos.premio) },
     }),
   );
 });
@@ -37,6 +37,15 @@ self.addEventListener('push', (evento) => {
 self.addEventListener('notificationclick', (evento) => {
   evento.notification.close();
   const url = evento.notification.data?.url || '/';
+  // Si era un premio, ya lo vio: el servidor no le manda el resumen de la mañana
+  if (evento.notification.data?.premio) {
+    const api = (import.meta.env.VITE_API_URL || 'https://api.quinielaaltoque.app').replace(/\/$/, '');
+    evento.waitUntil(
+      self.registration.pushManager.getSubscription()
+        .then((s) => s && fetch(`${api}/api/push/visto`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: s.endpoint }) }))
+        .catch(() => {}),
+    );
+  }
   evento.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((ventanas) => {
       for (const v of ventanas) {

@@ -202,3 +202,32 @@ test('Redoblona que sale: avisa con el premio', () => {
   const no = armarAviso({ preferencias: { cabezas: false }, jugadas: [{ ...jugada, numero2: '00' === segundo ? '01' : '00' }] }, SORTEO);
   assert.equal(no, null);
 });
+
+test('Jugada fija: avisa en los días elegidos desde su fecha', () => {
+  const fija = (extra) => ({ preferencias: { cabezas: false }, jugadas: [{ numero: '79', ubicacion: 'cabeza', quinielas: ['ciudad'], turnos: ['matutina'], fecha: '2026-10-01', fija: true, ...extra }] });
+  assert.equal(armarAviso(fija({}), SORTEO).titulo, '¡Salió tu 79 en la Matutina!'); // jueves 08/10, todos los días
+  assert.equal(armarAviso(fija({ dias: [4] }), SORTEO).titulo, '¡Salió tu 79 en la Matutina!');
+  assert.equal(armarAviso(fija({ dias: [1, 2] }), SORTEO), null); // solo lunes y martes
+  assert.equal(armarAviso(fija({ fecha: '2026-10-09' }), SORTEO), null); // empieza después
+});
+
+test('Premio avisado queda anotado y a la mañana se resume si no lo vio', async () => {
+  const subs = [{ endpoint: 'https://push/a', preferencias: { cabezas: false }, jugadas: [{ numero: '79', ubicacion: 'cabeza', quinielas: ['ciudad'], turnos: ['matutina'], fecha: '2026-10-08', monto: 100 }] }];
+  const base = baseFalsa(subs);
+  const premios = [];
+  base.guardarPremioAvisado = async (endpoint, fecha, turno, titulo, cuerpo) => { premios.push({ endpoint, fecha, turno, titulo, cuerpo, resumido: false }); };
+  base.premiosSinVer = async (desde, hoy) => premios.filter((p) => !p.resumido && p.fecha >= desde && p.fecha < hoy);
+  base.marcarPremiosResumidos = async (endpoint) => { premios.forEach((p) => { if (p.endpoint === endpoint) p.resumido = true; }); };
+  const enviados = [];
+  const avisos = crearAvisos({ base, activo: () => true, enviar: async (sub, datos) => { enviados.push(datos); } });
+  await avisos.avisarSorteo(SORTEO);
+  assert.equal(premios.length, 1);
+  // Viernes 09/10 a las 9:00: todavía no
+  assert.equal((await avisos.resumirPremios(new Date('2026-10-09T12:00:00Z'))).enviados, 0);
+  // 10:05: resumen
+  assert.equal((await avisos.resumirPremios(new Date('2026-10-09T13:05:00Z'))).enviados, 1);
+  assert.equal(enviados.at(-1).titulo, 'Ayer tuviste premio');
+  assert.match(enviados.at(-1).cuerpo, /^Ayer: Salió tu 79 en la Matutina/);
+  // Una sola vez
+  assert.equal((await avisos.resumirPremios(new Date('2026-10-09T13:08:00Z'))).enviados, 0);
+});

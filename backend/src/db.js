@@ -643,3 +643,33 @@ export async function fechasConPozo(juego, desde) {
   const r = await db().query("select to_char(fecha, 'YYYY-MM-DD') as f from pozos where juego = $1 and fecha >= $2", [juego, desde]);
   return new Set(r.rows.map((x) => x.f));
 }
+
+// ---- Premios avisados (resumen de la mañana) ---------------------------
+export async function guardarPremioAvisado(endpoint, fecha, turno, titulo, cuerpo) {
+  await db().query(
+    `insert into premios_avisados (endpoint, fecha, turno, titulo, cuerpo) values ($1, $2, $3, $4, $5)
+     on conflict (endpoint, fecha, turno) do update set titulo = excluded.titulo, cuerpo = excluded.cuerpo`,
+    [endpoint, fecha, turno, titulo, cuerpo],
+  );
+}
+
+// Lo vio (tocó el aviso o abrió Jugadas): no hace falta resumírselo
+export async function marcarPremiosVistos(endpoint) {
+  const r = await db().query('update premios_avisados set visto = true where endpoint = $1 and not visto', [endpoint]);
+  return r.rowCount;
+}
+
+export async function premiosSinVer(desde, hoy) {
+  const r = await db().query(
+    `select p.endpoint, to_char(p.fecha, 'YYYY-MM-DD') as fecha, p.turno, p.titulo, p.cuerpo
+     from premios_avisados p
+     where p.fecha >= $1 and p.fecha < $2 and not p.visto and not p.resumido
+     order by p.endpoint, p.fecha, array_position(array['previa','primera','matutina','vespertina','nocturna'], p.turno)`,
+    [desde, hoy],
+  );
+  return r.rows;
+}
+
+export async function marcarPremiosResumidos(endpoint, desde, hoy) {
+  await db().query('update premios_avisados set resumido = true where endpoint = $1 and fecha >= $2 and fecha < $3', [endpoint, desde, hoy]);
+}

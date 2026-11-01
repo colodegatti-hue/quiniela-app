@@ -170,3 +170,17 @@ test('Jugada guardada: redoblona completa y con extracto a medias', async () => 
   assert.equal(evaluarGuardada(j, parcial).estado, 'pendiente');
   assert.equal(evaluarGuardada({ tipo: 'directa', numero: '79', ubicacion: 'cabeza', monto: 10 }, parcial).estado, 'gano');
 });
+
+test('Jugada fija: en qué fechas vale y qué fecha se muestra', async () => {
+  const { jugadaAplica, fechaDeControl } = await import('./premios.js');
+  const comun = { fecha: '2026-10-30' };
+  assert.equal(jugadaAplica(comun, '2026-10-30'), true);
+  assert.equal(jugadaAplica(comun, '2026-10-31'), false);
+  const fija = { fecha: '2026-10-28', fija: true, dias: [1, 3, 5] }; // lunes, miércoles, viernes
+  assert.equal(jugadaAplica(fija, '2026-10-30'), true); // viernes
+  assert.equal(jugadaAplica(fija, '2026-10-31'), false); // sábado
+  assert.equal(jugadaAplica(fija, '2026-10-26'), false); // lunes anterior a su fecha
+  assert.equal(fechaDeControl(fija, '2026-10-31'), '2026-10-30');
+  assert.equal(fechaDeControl({ fecha: '2026-10-28', fija: true }, '2026-11-01'), '2026-10-31'); // domingo: muestra el sábado
+  assert.equal(fechaDeControl(comun, '2026-11-05'), '2026-10-30');
+});

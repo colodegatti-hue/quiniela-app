@@ -2,14 +2,14 @@
 // jugadas.js — Guardar jugadas en el teléfono y controlarlas
 // Usa las reglas de premios compartidas con el servidor (shared/premios.js)
 // =====================================================================
-import { evaluarGuardada, UBICACIONES } from '../../../shared/premios.js';
+import { evaluarGuardada, UBICACIONES, jugadaAplica, fechaDeControl, DIAS_SORTEO } from '../../../shared/premios.js';
 import { extractoDe, turnoPorId, TURNOS, QUINIELAS, sortea } from './datos.js';
 import { yaEsLaHora } from './fechas.js';
 
 const CLAVE = 'quiniela.jugadas.v1';
 const CLAVE_DISPOSITIVO = 'quiniela.dispositivo';
 
-export { UBICACIONES };
+export { UBICACIONES, jugadaAplica, fechaDeControl, DIAS_SORTEO };
 
 export function cargarJugadas() {
   try {
@@ -43,7 +43,7 @@ export function idDispositivo() {
   }
 }
 
-export function nuevaJugada({ tipo = 'directa', numero, ubicacion, numero2, ubicacion2, quinielas, turnos, fecha, monto }) {
+export function nuevaJugada({ tipo = 'directa', numero, ubicacion, numero2, ubicacion2, quinielas, turnos, fecha, monto, fija = false, dias = DIAS_SORTEO }) {
   const redoblona = tipo === 'redoblona';
   return {
     id: crypto.randomUUID(),
@@ -55,12 +55,13 @@ export function nuevaJugada({ tipo = 'directa', numero, ubicacion, numero2, ubic
     turnos,
     fecha,
     monto: monto ? Number(monto) : null,
+    ...(fija ? { fija: true, dias: DIAS_SORTEO.filter((d) => dias.includes(d)) } : {}),
     creada: new Date().toISOString(),
   };
 }
 
 // Valida lo que cargó la persona. Devuelve un texto de error o null.
-export function validarJugada({ tipo, numero, numero2, ubicacion, ubicacion2, quinielas, turnos, monto }) {
+export function validarJugada({ tipo, numero, numero2, ubicacion, ubicacion2, quinielas, turnos, monto, fija, dias }) {
   if (tipo === 'redoblona') {
     if (!/^\d{2}$/.test(numero) || !/^\d{2}$/.test(numero2 ?? '')) return 'En la redoblona los dos números tienen que tener 2 cifras.';
     if (ubicacion === 'a_los_20') return 'En la redoblona el primer número va a la cabeza, a los 5 o a los 10.';
@@ -68,6 +69,7 @@ export function validarJugada({ tipo, numero, numero2, ubicacion, ubicacion2, qu
   } else if (!/^\d{1,4}$/.test(numero)) return 'El número tiene que tener de 1 a 4 cifras.';
   if (!quinielas.length) return 'Elegí al menos una quiniela.';
   if (!turnos.length) return 'Elegí al menos un turno.';
+  if (fija && !(dias ?? []).length) return 'Elegí al menos un día para la jugada fija.';
   if (monto !== '' && monto !== null && !(Number(monto) > 0)) return 'El monto tiene que ser mayor a cero, o dejalo vacío.';
   return null;
 }
@@ -75,7 +77,7 @@ export function validarJugada({ tipo, numero, numero2, ubicacion, ubicacion2, qu
 // Controla una jugada contra los resultados de su fecha.
 // Devuelve una fila por cada quiniela y turno:
 // { turno, quiniela, estado: 'gano' | 'no' | 'falta' | 'demora', aciertos, premio }
-export function controlarJugada(jugada, resultados, instante = new Date()) {
+export function controlarJugada(jugada, resultados, instante = new Date(), fecha = jugada.fecha) {
   const monto = jugada.monto || 1; // sin monto: se calcula "por cada $1"
   const filas = [];
   // Siempre en el orden del día y de las quinielas, no en el que se tocaron
@@ -87,7 +89,7 @@ export function controlarJugada(jugada, resultados, instante = new Date()) {
       const extracto = extractoDe(resultados, turno, quiniela);
       if (!extracto) {
         const hora = turnoPorId(turno).hora;
-        filas.push({ turno, quiniela, estado: yaEsLaHora(jugada.fecha, hora, instante) ? 'demora' : 'falta' });
+        filas.push({ turno, quiniela, estado: yaEsLaHora(fecha, hora, instante) ? 'demora' : 'falta' });
         continue;
       }
       const { estado, resultado: r } = evaluarGuardada({ ...jugada, monto }, extracto);

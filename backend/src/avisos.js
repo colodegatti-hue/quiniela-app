@@ -8,7 +8,7 @@
 // Variables de entorno: VAPID_PUBLICA, VAPID_PRIVADA, VAPID_CONTACTO
 // =====================================================================
 import webpush from 'web-push';
-import { evaluarGuardada, UBICACIONES } from '../../shared/premios.js';
+import { evaluarGuardada, UBICACIONES, jugadaAplica } from '../../shared/premios.js';
 import { suenoDe } from '../../shared/suenos.js';
 import { TURNOS, horaArgentina, minutosDelDia, PROVINCIALES } from './horarios.js';
 import * as baseReal from './db.js';
@@ -49,7 +49,7 @@ export function armarAviso(sub, sorteo) {
   // 1. ¿Salió alguna de sus jugadas?
   const aciertos = [];
   for (const j of jugadas) {
-    if (j.fecha !== sorteo.fecha || !j.turnos?.includes(sorteo.turno) || !UBICACIONES[j.ubicacion]) continue;
+    if (!jugadaAplica(j, sorteo.fecha) || !j.turnos?.includes(sorteo.turno) || !UBICACIONES[j.ubicacion]) continue;
     const redoblona = j.tipo === 'redoblona';
     if (redoblona ? !(/^\d{2}$/.test(String(j.numero)) && /^\d{2}$/.test(String(j.numero2)) && UBICACIONES[j.ubicacion2]) : !/^\d{1,4}$/.test(String(j.numero))) continue;
     for (const q of j.quinielas || []) {
@@ -77,6 +77,7 @@ export function armarAviso(sub, sorteo) {
       cuerpo: lineas.join('\n'),
       url: '/#/jugadas',
       etiqueta,
+      premio: true,
     };
   }
 
@@ -188,7 +189,7 @@ export function crearAvisos(opciones = {}) {
           for (const q of Array.isArray(prefs.quinielas) && prefs.quinielas.length ? prefs.quinielas : QUINIELAS_POR_DEFECTO) importan.add(q);
         }
         for (const j of Array.isArray(sub.jugadas) ? sub.jugadas : []) {
-          if (j.fecha === sorteo.fecha && j.turnos?.includes(sorteo.turno)) for (const q of j.quinielas || []) importan.add(q);
+          if (jugadaAplica(j, sorteo.fecha) && j.turnos?.includes(sorteo.turno)) for (const q of j.quinielas || []) importan.add(q);
         }
         if (!alertas && ![...nuevasSet].some((q) => importan.has(q))) return; // no llegó nada que le importe
 
@@ -199,6 +200,10 @@ export function crearAvisos(opciones = {}) {
         if (previo && previo.titulo === datos.titulo && previo.cuerpo === datos.cuerpo) return; // nada nuevo
         ultimos.set(clave, { titulo: datos.titulo, cuerpo: datos.cuerpo });
         await mandar(sub, { ...datos, silencioso: Boolean(previo && previo.titulo === datos.titulo) }, informe);
+        // Premios: se anotan para el resumen de la mañana siguiente (si no lo vio)
+        if (datos.premio && base.guardarPremioAvisado) {
+          await base.guardarPremioAvisado(sub.endpoint, sorteo.fecha, sorteo.turno, datos.titulo, datos.cuerpo).catch(() => {});
+        }
       }));
     }
     return informe;
@@ -235,5 +240,45 @@ export function crearAvisos(opciones = {}) {
     return informe;
   }
 
-  return { avisarSorteo, recordar, prueba, avisarAdmins };
+  // A la mañana (10:00 a 10:14, antes de La Previa): premios de los días anteriores que no vio
+  const resumidos = new Set(); // fechas ya resumidas (en memoria; la base también lo marca)
+  async function resumirPremios(ahora = new Date()) {
+    const informe = { enviados: 0, fallidos: 0 };
+    const ar = horaArgentina(ahora);
+    if (!activo() || !base.premiosSinVer || ar.diaSemana === 0 || ar.minutos < 600 || ar.minutos > 614 || resumidos.has(ar.fecha)) return informe;
+    resumidos.add(ar.fecha);
+    const desde = new Date(Date.parse(`${ar.fecha}T12:00:00Z`) - 3 * 864e5).toISOString().slice(0, 10);
+    const filas = await base.premiosSinVer(desde, ar.fecha);
+    if (!filas.length) return informe;
+    const subs = new Map((await base.listarSuscripciones()).map((s) => [s.endpoint, s]));
+    const porTelefono = new Map();
+    for (const f of filas) porTelefono.set(f.endpoint, [...(porTelefono.get(f.endpoint) ?? []), f]);
+    for (const [endpoint, lista] of porTelefono) {
+      const sub = subs.get(endpoint);
+      if (!sub) continue;
+      const datos = textoResumen(lista, ar.fecha);
+      await mandar(sub, datos, informe);
+      await base.marcarPremiosResumidos(endpoint, desde, ar.fecha);
+    }
+    return informe;
+  }
+
+  return { avisarSorteo, recordar, prueba, avisarAdmins, resumirPremios };
+}
+
+// Texto del resumen de la mañana: "Ayer salió tu 79 en la Nocturna"
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+export function textoResumen(filas, hoy) {
+  const ayer = new Date(Date.parse(`${hoy}T12:00:00Z`) - 864e5).toISOString().slice(0, 10);
+  const fechas = [...new Set(filas.map((f) => String(f.fecha).slice(0, 10)))].sort();
+  const cuando = (f) => (f === ayer ? 'Ayer' : `El ${DIAS[new Date(`${f}T12:00:00Z`).getUTCDay()]}`);
+  const lineas = filas.slice(0, 4).map((f) => `${cuando(String(f.fecha).slice(0, 10))}: ${String(f.titulo).replace(/^¡|!$/g, '')}`);
+  if (filas.length > 4) lineas.push(`y ${filas.length - 4} más`);
+  lineas.push('Revisá tu boleta en la agencia.');
+  return {
+    titulo: fechas.length === 1 ? `${cuando(fechas[0])} tuviste premio` : 'Tuviste premios estos días',
+    cuerpo: lineas.join('\n'),
+    url: '/#/jugadas',
+    etiqueta: `resumen-${hoy}`,
+  };
 }

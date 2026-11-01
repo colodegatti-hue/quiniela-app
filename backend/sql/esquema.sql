@@ -174,3 +174,16 @@ create table if not exists pozos (
   encontrado_en timestamptz not null default now(),
   primary key (juego, fecha)
 );
+
+-- Premios avisados por push: si no los vio, a la mañana siguiente se manda un resumen
+create table if not exists premios_avisados (
+  endpoint text not null,
+  fecha date not null,
+  turno text not null,
+  titulo text not null,
+  cuerpo text not null,
+  visto boolean not null default false,
+  resumido boolean not null default false,
+  creado timestamptz not null default now(),
+  primary key (endpoint, fecha, turno)
+);

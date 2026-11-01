@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import PanelAvisos from '../componentes/PanelAvisos.jsx';
-import { sincronizarJugadas } from '../util/avisos.js';
+import { sincronizarJugadas, marcarPremiosVistos } from '../util/avisos.js';
 import { PRINCIPALES, PROVINCIALES, TURNOS, nombreQuiniela, turnoPorId, obtenerResultados } from '../util/datos.js';
 import { hoy, sumarDias, fechaCorta, formatoPesos, yaEsLaHora, diaSemana } from '../util/fechas.js';
 import {
-  UBICACIONES, cargarJugadas, guardarJugadas, nuevaJugada, validarJugada, controlarJugada, resumenJugada,
+  UBICACIONES, cargarJugadas, guardarJugadas, nuevaJugada, validarJugada, controlarJugada, resumenJugada, fechaDeControl, DIAS_SORTEO,
 } from '../util/jugadas.js';
+
+const NOMBRE_DIA = { 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb' };
+const textoDias = (dias) => (!dias?.length || dias.length === 6 ? 'todos los días' : dias.map((d) => NOMBRE_DIA[d]).join(', '));
 
 // Días que se pueden elegir: hoy, mañana y ayer (los domingos no hay sorteos)
 const fechasPosibles = () => [hoy(), sumarDias(hoy(), 1), sumarDias(hoy(), -1)].filter((d) => diaSemana(d) !== 0);
@@ -18,7 +21,7 @@ function turnosPendientes(fecha) {
 
 const FORM_INICIAL = () => {
   const fecha = fechasPosibles()[0];
-  return { tipo: 'directa', numero: '', ubicacion: 'cabeza', numero2: '', ubicacion2: 'a_los_5', quinielas: ['ciudad', 'provincia'], turnos: turnosPendientes(fecha), fecha, monto: '' };
+  return { tipo: 'directa', numero: '', ubicacion: 'cabeza', numero2: '', ubicacion2: 'a_los_5', quinielas: ['ciudad', 'provincia'], turnos: turnosPendientes(fecha), fecha, monto: '', fija: false, dias: DIAS_SORTEO };
 };
 
 function alternar(lista, valor) {
@@ -117,10 +120,28 @@ function Formulario({ alGuardar, alCancelar }) {
         </div>
       </fieldset>
 
+      <fieldset className="campo">
+        <legend>¿Cuándo la jugás?</legend>
+        <div className="opciones">
+          <button type="button" className={`opcion${!f.fija ? ' activa' : ''}`} aria-pressed={!f.fija} onClick={() => setF((x) => ({ ...x, fija: false, turnos: turnosPendientes(x.fecha) }))}>Un solo día</button>
+          <button type="button" className={`opcion${f.fija ? ' activa' : ''}`} aria-pressed={f.fija} onClick={() => setF((x) => ({ ...x, fija: true, turnos: x.fija ? x.turnos : TURNOS.map((t) => t.id) }))}>Siempre (jugada fija)</button>
+        </div>
+        {f.fija && (
+          <>
+            <div className="opciones">
+              {DIAS_SORTEO.map((d) => (
+                <button key={d} type="button" className={`opcion${f.dias.includes(d) ? ' activa' : ''}`} aria-pressed={f.dias.includes(d)} onClick={() => cambiar('dias', alternar(f.dias, d))}>{NOMBRE_DIA[d]}</button>
+              ))}
+            </div>
+            <small>La app la controla y te avisa en cada sorteo de esos días, sin volver a cargarla.</small>
+          </>
+        )}
+      </fieldset>
+
       <div className="campo-doble">
         <label className="campo">
-          <span>Día</span>
-          <select value={f.fecha} onChange={(e) => setF((x) => ({ ...x, fecha: e.target.value, turnos: turnosPendientes(e.target.value) }))}>
+          <span>{f.fija ? 'Desde' : 'Día'}</span>
+          <select value={f.fecha} onChange={(e) => setF((x) => ({ ...x, fecha: e.target.value, turnos: x.fija ? x.turnos : turnosPendientes(e.target.value) }))}>
             {fechasPosibles().map((d) => (
               <option key={d} value={d}>{d === hoy() ? `Hoy (${fechaCorta(d)})` : fechaCorta(d)}</option>
             ))}
@@ -142,9 +163,9 @@ function Formulario({ alGuardar, alCancelar }) {
   );
 }
 
-function TarjetaJugada({ jugada, resultados, alBorrar }) {
+function TarjetaJugada({ jugada, fecha, resultados, alBorrar }) {
   const [confirmar, setConfirmar] = useState(false);
-  const filas = controlarJugada(jugada, resultados);
+  const filas = controlarJugada(jugada, resultados, undefined, fecha);
   const r = resumenJugada(filas, jugada);
   const ubic = UBICACIONES[jugada.ubicacion].nombre.toLowerCase();
   const redoblona = jugada.tipo === 'redoblona';
@@ -155,7 +176,7 @@ function TarjetaJugada({ jugada, resultados, alBorrar }) {
       <header className="jugada-cabecera">
         <p className="jugada-numero">{redoblona ? `${jugada.numero}·${jugada.numero2}` : jugada.numero}</p>
         <div>
-          <p className="jugada-detalle">{redoblona ? `Redoblona: ${jugada.numero} ${ubic} y ${jugada.numero2} ${ubic2}` : ubic}, {fechaCorta(jugada.fecha)}</p>
+          <p className="jugada-detalle">{redoblona ? `Redoblona: ${jugada.numero} ${ubic} y ${jugada.numero2} ${ubic2}` : ubic}, {jugada.fija ? <>fija {textoDias(jugada.dias)} · {fecha === hoy() ? 'hoy' : fechaCorta(fecha)}</> : fechaCorta(fecha)}</p>
           <p className="jugada-estado">
             {r.ganadas > 0
               ? r.premio !== null ? `Ganaste ${formatoPesos(r.premio)} (estimado)` : `Acertaste en ${r.ganadas} ${r.ganadas === 1 ? 'sorteo' : 'sorteos'}`
@@ -198,7 +219,10 @@ export default function Jugadas() {
   const [resultados, setResultados] = useState({}); // fecha -> resultados
   const [aviso, setAviso] = useState(null);
 
-  const fechas = [...new Set(jugadas.map((j) => j.fecha))];
+  const fechaDe = (j) => fechaDeControl(j, hoy());
+  const fechas = [...new Set(jugadas.map(fechaDe))];
+
+  useEffect(() => { marcarPremiosVistos(); }, []);
   const claveFechas = fechas.sort().join(',');
 
   useEffect(() => {
@@ -221,7 +245,7 @@ export default function Jugadas() {
     sincronizarJugadas(lista); // para que el servidor avise si salen
   }
 
-  const ordenadas = [...jugadas].sort((a, b) => (b.fecha + b.creada).localeCompare(a.fecha + a.creada));
+  const ordenadas = [...jugadas].sort((a, b) => (fechaDe(b) + b.creada).localeCompare(fechaDe(a) + a.creada));
 
   return (
     <section className="pantalla">
@@ -250,7 +274,7 @@ export default function Jugadas() {
 
       <div className="lista-jugadas">
         {ordenadas.map((j) => (
-          <TarjetaJugada key={j.id} jugada={j} resultados={resultados[j.fecha]} alBorrar={(id) => guardar(jugadas.filter((x) => x.id !== id))} />
+          <TarjetaJugada key={j.id} jugada={j} fecha={fechaDe(j)} resultados={resultados[fechaDe(j)]} alBorrar={(id) => guardar(jugadas.filter((x) => x.id !== id))} />
         ))}
       </div>
     </section>

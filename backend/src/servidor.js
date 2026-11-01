@@ -13,7 +13,7 @@ import { buscarCabezasVivi } from './fuentes/vivitusuerte.js';
 import express from 'express';
 import {
   conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero, guardarSorteo, estadisticas,
-  guardarSuscripcion, actualizarSuscripcion, borrarSuscripcion, crearArrepentimiento, listarArrepentimientos,
+  guardarSuscripcion, actualizarSuscripcion, borrarSuscripcion, marcarPremiosVistos, crearArrepentimiento, listarArrepentimientos,
   registrarUso, esProDispositivo, alertaNueva, pozosDeFecha,
 } from './db.js';
 import { crearVigilancia } from './vigilancia.js';
@@ -144,6 +144,12 @@ app.get('/cron/tick', exigirClave, async (req, res) => {
       if (r.turno) resumen.recordatorio = r;
     } catch (e) {
       console.error('[recordatorio] error:', e.message);
+    }
+    try {
+      const r = await avisos.resumirPremios();
+      if (r.enviados || r.fallidos) resumen.resumenPremios = r;
+    } catch (e) {
+      console.error('[resumen premios] error:', e.message);
     }
     try {
       const fallas = await vigilancia.revisar(ciclo.verEstado());
@@ -303,10 +309,11 @@ function limpiarJugadas(jugadas) {
   if (!Array.isArray(jugadas)) return [];
   const desde = horaArgentina().fecha;
   return jugadas
-    .filter((j) => j && /^\d{1,4}$/.test(String(j.numero)) && typeof j.fecha === 'string' && j.fecha >= desde)
+    .filter((j) => j && /^\d{1,4}$/.test(String(j.numero)) && typeof j.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(j.fecha) && (j.fija === true || j.fecha >= desde))
     .slice(0, 50)
     .map((j) => ({
       ...(j.tipo === 'redoblona' && /^\d{2}$/.test(String(j.numero2)) ? { tipo: 'redoblona', numero2: String(j.numero2), ubicacion2: String(j.ubicacion2) } : {}),
+      ...(j.fija === true ? { fija: true, dias: Array.isArray(j.dias) ? [...new Set(j.dias.map(Number).filter((d) => d >= 1 && d <= 6))] : [] } : {}),
       numero: String(j.numero), ubicacion: String(j.ubicacion), fecha: j.fecha,
       quinielas: (j.quinielas || []).map(String).slice(0, 25), turnos: (j.turnos || []).map(String).slice(0, 5),
       monto: Number(j.monto) > 0 ? Number(j.monto) : null,
@@ -342,6 +349,19 @@ app.post('/api/push/suscribir', async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     console.error('[push] suscribir:', e.message);
+    res.status(503).json({ error: 'No se pudo guardar' });
+  }
+});
+
+// Vio sus premios (tocó el aviso o abrió Jugadas): no se le manda el resumen de la mañana
+app.post('/api/push/visto', async (req, res) => {
+  const { endpoint } = req.body || {};
+  if (typeof endpoint !== 'string' || endpoint.length > 1000) return res.status(400).json({ error: 'Falta el endpoint' });
+  try {
+    await marcarPremiosVistos(endpoint);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[push] visto:', e.message);
     res.status(503).json({ error: 'No se pudo guardar' });
   }
 });

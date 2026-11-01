@@ -61,3 +61,14 @@ test('Boleta de Poceada/Plus: lee números, sin repetir, hasta 15', async () => 
   assert.deepEqual(leerBoleta('5 12, 27-5 99'), ['05', '12', '27', '99']);
   assert.equal(leerBoleta(Array.from({ length: 20 }, (_, i) => i).join(' ')).length, 15);
 });
+
+test('Jugada fija: se guarda con sus días y valida que haya alguno', async () => {
+  const { nuevaJugada, validarJugada } = await import('../src/util/jugadas.js');
+  const base = { tipo: 'directa', numero: '79', ubicacion: 'cabeza', quinielas: ['ciudad'], turnos: ['nocturna'], fecha: '2026-11-02', monto: '' };
+  const j = nuevaJugada({ ...base, fija: true, dias: [5, 1] });
+  assert.equal(j.fija, true);
+  assert.deepEqual(j.dias, [1, 5]);
+  assert.equal(nuevaJugada(base).fija, undefined);
+  assert.match(validarJugada({ ...base, fija: true, dias: [] }), /al menos un día/);
+  assert.equal(validarJugada({ ...base, fija: true, dias: [1] }), null);
+});
