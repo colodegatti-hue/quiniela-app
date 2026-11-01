@@ -29,6 +29,8 @@ export function interpretarPozo(datos, prefijo, fechaEsperada) {
     if (!/^\d{1,2}$/.test(n)) return null;
     numeros.push(n.padStart(2, '0'));
   }
+  // Antes del sorteo vivitusuerte publica la ficha con todas las bolillas en 0: los 20 tienen que ser distintos
+  if (new Set(numeros).size !== 20) return null;
   const categorias = [];
   for (let c = 1; c <= 7; c++) {
     const g = String(k(`cat${c}`) ?? '').trim();
