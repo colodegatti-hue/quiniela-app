@@ -16,7 +16,7 @@ before(async () => {
   const esquema = await readFile(new URL('../sql/esquema.sql', import.meta.url), 'utf8');
   const c = new pg.Client({ connectionString: URL_PRUEBA });
   await c.connect();
-  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones, compras, licencias, arrepentimientos, cabezas, dispositivos, actividad, agencias, visitas, admin_registro, admin_dispositivos, alertas_admin, pozos cascade');
+  await c.query('drop table if exists extractos, publicaciones, sorteos, suscripciones, compras, licencias, arrepentimientos, cabezas, dispositivos, actividad, agencias, visitas, admin_registro, admin_dispositivos, alertas_admin, pozos, premios_avisados cascade');
   await c.query(esquema);
   await c.query(esquema); // se puede correr dos veces
   await c.end();
@@ -326,4 +326,21 @@ test('Base real: Poceada y Quiniela Plus', opciones, async () => {
   assert.equal(r.poceada.sorteo, 9759);
   assert.equal(r.poceada.categorias[0].ganadores, 1);
   assert.ok((await db.fechasConPozo('poceada', '2026-10-01')).has('2026-10-30'));
+});
+
+test('Base real: premios avisados, vistos y resumidos', opciones, async () => {
+  await db.guardarPremioAvisado('https://push/p1', '2026-10-30', 'nocturna', '¡Salió tu 79 en la Nocturna!', 'Ciudad: el 79 a la cabeza');
+  await db.guardarPremioAvisado('https://push/p1', '2026-10-30', 'nocturna', '¡Salió tu 79 en la Nocturna!', 'Ciudad: el 79 a la cabeza ($7.000 estimado)');
+  await db.guardarPremioAvisado('https://push/p2', '2026-10-30', 'previa', '¡Salió tu 12 en La Previa!', 'Provincia: el 12 a la cabeza');
+  let f = await db.premiosSinVer('2026-10-28', '2026-10-31');
+  assert.equal(f.length, 2);
+  assert.equal(f.find((x) => x.endpoint === 'https://push/p1').cuerpo, 'Ciudad: el 79 a la cabeza ($7.000 estimado)');
+  assert.equal(f[0].fecha, '2026-10-30');
+  assert.equal(await db.marcarPremiosVistos('https://push/p2'), 1);
+  await db.marcarPremiosResumidos('https://push/p1', '2026-10-28', '2026-10-31');
+  f = await db.premiosSinVer('2026-10-28', '2026-10-31');
+  assert.equal(f.length, 0);
+  // Los de hoy no entran en el resumen
+  await db.guardarPremioAvisado('https://push/p3', '2026-10-31', 'primera', 'x', 'y');
+  assert.equal((await db.premiosSinVer('2026-10-28', '2026-10-31')).length, 0);
 });

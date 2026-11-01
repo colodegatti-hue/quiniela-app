@@ -265,3 +265,28 @@ export function evaluarGuardada(jugada, extracto, tabla = TABLA_POR_DEFECTO) {
   }
   return { estado: 'pendiente', resultado: null };
 }
+
+// ---- Jugadas fijas -----------------------------------------------------
+// Una jugada común vale solo en su fecha. Una fija ("jugarla siempre") vale desde su
+// fecha en los días elegidos (1 = lunes … 6 = sábado; sin días = de lunes a sábado).
+export const DIAS_SORTEO = [1, 2, 3, 4, 5, 6];
+const diaDe = (fecha) => new Date(`${fecha}T12:00:00Z`).getUTCDay();
+const restarDia = (fecha) => new Date(Date.parse(`${fecha}T12:00:00Z`) - 864e5).toISOString().slice(0, 10);
+
+export function jugadaAplica(jugada, fecha) {
+  if (!jugada || typeof jugada.fecha !== 'string') return false;
+  if (!jugada.fija) return jugada.fecha === fecha;
+  if (fecha < jugada.fecha) return false;
+  const dias = Array.isArray(jugada.dias) && jugada.dias.length ? jugada.dias : DIAS_SORTEO;
+  return dias.includes(diaDe(fecha));
+}
+
+// Fecha que se muestra al controlar: la común, su fecha; la fija, el último día que le tocó (hoy incluido)
+export function fechaDeControl(jugada, hoy) {
+  if (!jugada?.fija) return jugada?.fecha;
+  let f = hoy;
+  for (let i = 0; i < 8 && f >= jugada.fecha; i++, f = restarDia(f)) {
+    if (jugadaAplica(jugada, f)) return f;
+  }
+  return jugada.fecha;
+}

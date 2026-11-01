@@ -111,6 +111,16 @@ export async function sincronizarJugadas(jugadas) {
   }
 }
 
+// Ya vio sus jugadas: el servidor no le manda el resumen de premios de la mañana
+export async function marcarPremiosVistos() {
+  try {
+    const sub = await suscripcionActual();
+    if (sub) await enviar('/api/push/visto', { endpoint: sub.endpoint });
+  } catch {
+    /* no importa */
+  }
+}
+
 export async function avisoDePrueba() {
   const sub = await suscripcionActual();
   if (!sub) throw new Error('sin-suscripcion');
