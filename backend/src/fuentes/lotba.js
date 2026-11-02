@@ -51,7 +51,12 @@ export function interpretarLotba(texto) {
 
   const s = datos[0];
   const turno = idTurno(s.modalidad);
-  if (!turno) throw new Error(`Modalidad desconocida: ${s.modalidad}`);
+  if (!turno) {
+    // No es un sorteo de quiniela que usemos: no tiene sentido volver a pedirlo
+    const e = new Error(`Modalidad desconocida: ${s.modalidad}`);
+    e.permanente = true;
+    throw e;
+  }
 
   const extractos = [];
   for (const j of Object.values(s.jurisdicciones || {})) {

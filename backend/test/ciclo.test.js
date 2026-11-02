@@ -223,6 +223,23 @@ test('Historial: completa de a poco los sorteos viejos que faltan (8 por llamada
   assert.equal(r.historial, undefined);
 });
 
+test('Historial: saltea un sorteo con modalidad desconocida y sigue con los demás', async () => {
+  const base = baseEnMemoria();
+  base.sorteos.set('2026-10-08|matutina', { numero: 53009, fuente: 'lotba', extractos: [] });
+  const viejos = { 53008: { fecha: '2026-09-10', turno: 'previa' }, 53006: { fecha: '2026-09-10', turno: 'primera' } };
+  const { fuentes } = fuentesFalsas(viejos, { lotbaPublicados: new Set([53008, 53006]) });
+  const original = fuentes.buscarSorteoLotba;
+  fuentes.buscarSorteoLotba = async (n) => {
+    if (n === 53007) { const e = new Error('Modalidad desconocida: MONT'); e.permanente = true; throw e; }
+    return original(n);
+  };
+  const ciclo = crearCiclo({ base, fuentes, sorteoInicial: 53009, historialDesde: 53006 });
+  const r = await ciclo.tick(new Date('2026-10-18T19:00:00Z'));
+  assert.deepEqual(r.historial, { cargados: 2, quedan: 0 });
+  assert.deepEqual(r.salteados, ['53007: Modalidad desconocida: MONT']);
+  assert.equal(r.errores.length, 0);
+});
+
 test('alGuardar recibe si el sorteo es nuevo o actualizado (para avisar solo los nuevos)', async () => {
   const base = baseEnMemoria();
   base.sorteos.set('2026-10-08|primera', { numero: 53008, fuente: 'lotba', extractos: [] });
