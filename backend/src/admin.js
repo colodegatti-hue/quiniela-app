@@ -273,12 +273,13 @@ const PANEL = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta 
 <h2>Agencias amigas</h2>
 <div class="caja"><table><thead><tr><th>Agencia</th><th>Localidad</th><th>Entradas por QR</th><th>Teléfonos nuevos</th><th>Activos 30 días</th><th>Compras Pro</th><th></th></tr></thead><tbody id="agencias"></tbody></table></div>
 <p class="nota">Entradas = veces que abrieron el enlace o QR (aunque ya tuvieran la app). Teléfonos nuevos = la primera vez que abrieron la app fue por esa agencia.</p>
-<h2>Agregar agencia</h2>
+<h2 id="titulo-agencia">Agregar agencia</h2>
 <div class="caja"><form id="nueva" class="form">
+<input type="hidden" name="codigo">
 <label>Nombre<input name="nombre" required placeholder="Agencia La Suerte"></label>
 <label>Localidad<input name="localidad" placeholder="Isla Verde"></label>
 <label>Contacto<input name="contacto" placeholder="Teléfono o nombre"></label>
-<button type="submit">Agregar</button></form><p id="msj" class="nota"></p></div>
+<button type="submit" id="boton-agencia">Agregar</button> <button type="button" id="cancelar-agencia" hidden>Cancelar edición</button></form><p id="msj" class="nota"></p></div>
 
 <h2>De dónde llegan</h2>
 <div class="caja"><table><thead><tr><th>Origen</th><th>Teléfonos</th></tr></thead><tbody id="origenes"></tbody></table></div>
@@ -305,8 +306,13 @@ async function cargar() {
   $('pro').innerHTML = tarjeta('Pro activos', fmt(d.pro.activos), fmt(d.pro.pagos) + ' pagos') + tarjeta('Vencen en 7 días', fmt(d.pro.vencen7)) + tarjeta('Vencidos (30 días)', fmt(d.pro.vencidos30))
     + tarjeta('Cobrado este mes', pesos(d.ventas.mes_monto), fmt(d.ventas.mes_cantidad) + ' compras') + tarjeta('Cobrado este año', pesos(d.ventas.anio_monto), fmt(d.ventas.anio_cantidad) + ' compras')
     + tarjeta('Planes vendidos', fmt(d.ventas.mensuales) + ' / ' + fmt(d.ventas.anuales), 'mensuales / anuales');
-  $('agencias').innerHTML = d.agencias.length ? d.agencias.map((a) => '<tr><td><b>' + esc(a.nombre) + '</b><br><small class="nota">' + esc(d.appUrl) + '/ir.html?ag=' + esc(a.codigo) + '</small></td><td>' + esc(a.localidad) + '</td><td>' + fmt(a.visitas) + '</td><td>' + fmt(a.telefonos) + '</td><td>' + fmt(a.activos30) + '</td><td>' + fmt(a.compras_pro) + '</td><td><a class="boton" href="/admin/flyer/' + encodeURIComponent(a.codigo) + '" target="_blank">Flyer y QR</a></td></tr>').join('')
+  $('agencias').innerHTML = d.agencias.length ? d.agencias.map((a) => '<tr><td><b>' + esc(a.nombre) + '</b><br><small class="nota">' + esc(d.appUrl) + '/ir.html?ag=' + esc(a.codigo) + '</small></td><td>' + esc(a.localidad) + '</td><td>' + fmt(a.visitas) + '</td><td>' + fmt(a.telefonos) + '</td><td>' + fmt(a.activos30) + '</td><td>' + fmt(a.compras_pro) + '</td><td><button type="button" class="editar-agencia" data-codigo="' + esc(a.codigo) + '">Editar</button> <a class="boton" href="/admin/flyer/' + encodeURIComponent(a.codigo) + '" target="_blank">Flyer y QR</a></td></tr>').join('')
     : '<tr><td colspan="7" class="nota">Todavía no cargaste agencias.</td></tr>';
+  AGENCIAS = {};
+  d.agencias.forEach(function (a) { AGENCIAS[a.codigo] = a; });
+  document.querySelectorAll('.editar-agencia').forEach(function (b) {
+    b.addEventListener('click', function () { editarAgencia(AGENCIAS[b.dataset.codigo]); });
+  });
   $('origenes').innerHTML = d.origenes.length ? d.origenes.map((o) => '<tr><td>' + esc(NOMBRES[o.origen] || (o.origen.startsWith('ag:') ? 'Agencia ' + o.origen.slice(3) : o.origen)) + '</td><td>' + fmt(o.telefonos) + '</td></tr>').join('') : '<tr><td colspan="2" class="nota">Sin datos todavía.</td></tr>';
 }
 $('buscar-codigo').addEventListener('submit', async (e) => {
@@ -324,13 +330,38 @@ $('buscar-codigo').addEventListener('submit', async (e) => {
     $('codigo-res').textContent = y.ok ? 'Listo: el código ' + c + ' quedó libre. Ya lo puede poner en el celular nuevo.' : (y.error || 'No se pudo');
   });
 });
+var AGENCIAS = {};
+// Carga los datos de la agencia en el formulario para corregirlos; el código (y el QR) no cambia
+function editarAgencia(a) {
+  if (!a) return;
+  const f = $('nueva');
+  f.codigo.value = a.codigo;
+  f.nombre.value = a.nombre || '';
+  f.localidad.value = a.localidad || '';
+  f.contacto.value = a.contacto || '';
+  $('boton-agencia').textContent = 'Guardar cambios';
+  $('cancelar-agencia').hidden = false;
+  $('titulo-agencia').textContent = 'Editar agencia';
+  $('msj').textContent = 'Corregí lo que haga falta y tocá "Guardar cambios". El enlace y el QR de la agencia siguen iguales.';
+  f.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function dejarEdicion() {
+  const f = $('nueva');
+  f.reset();
+  f.codigo.value = '';
+  $('boton-agencia').textContent = 'Agregar';
+  $('cancelar-agencia').hidden = true;
+  $('titulo-agencia').textContent = 'Agregar agencia';
+}
+$('cancelar-agencia').addEventListener('click', function () { dejarEdicion(); $('msj').textContent = ''; });
 $('nueva').addEventListener('submit', async (e) => {
   e.preventDefault();
   const datos = Object.fromEntries(new FormData(e.target));
+  if (!datos.codigo) delete datos.codigo;
   const r = await fetch('/admin/api/agencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos) });
   const x = await r.json();
-  $('msj').textContent = x.ok ? 'Listo: agencia "' + datos.nombre + '" (código ' + x.codigo + ').' : (x.error || 'No se pudo guardar');
-  if (x.ok) { e.target.reset(); cargar(); }
+  $('msj').textContent = x.ok ? (datos.codigo ? 'Listo: se guardaron los cambios de "' + datos.nombre + '".' : 'Listo: agencia "' + datos.nombre + '" (código ' + x.codigo + ').') : (x.error || 'No se pudo guardar');
+  if (x.ok) { dejarEdicion(); cargar(); }
 });
 const NQ = { ciudad: 'Ciudad', provincia: 'Provincia', santafe: 'Santa Fe', cordoba: 'Córdoba', entrerios: 'Entre Ríos', mendoza: 'Mendoza', montevideo: 'Montevideo' };
 const telefono = new URLSearchParams(location.search).get('d') || '';

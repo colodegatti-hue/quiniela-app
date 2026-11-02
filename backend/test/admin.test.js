@@ -54,3 +54,31 @@ test('Panel apagado si no hay clave', async () => {
     srv.close();
   }
 });
+
+test('Agencias: editar corrige el nombre sin cambiar el código (ni el QR)', async () => {
+  const guardadas = [];
+  const base = {
+    anotarAdmin: async () => {}, registroAdmin: async () => [],
+    resumenAdmin: async () => ({ activos: { hoy: 0 } }), agenciasConDatos: async () => [],
+    guardarAgencia: async (a) => { guardadas.push(a); return 'actualizada'; },
+  };
+  const app = express();
+  app.use(express.json());
+  montarAdmin(app, { base, clave: () => 'clave-de-prueba' });
+  const srv = app.listen(0);
+  const url = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const bien = await fetch(`${url}/admin/entrar`, { method: 'POST', body: new URLSearchParams({ clave: 'clave-de-prueba' }), redirect: 'manual' });
+    const cookie = bien.headers.get('set-cookie').split(';')[0];
+    const r = await fetch(`${url}/admin/api/agencias`, {
+      method: 'POST', headers: { cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codigo: 'el-chavo-isla-verde', nombre: 'El Chavo Isla Verde', localidad: 'Isla Verde' }),
+    });
+    assert.equal(r.status, 200);
+    assert.equal(guardadas[0].codigo, 'el-chavo-isla-verde');
+    assert.equal(guardadas[0].nombre, 'El Chavo Isla Verde');
+    assert.match(await (await fetch(`${url}/admin`, { headers: { cookie } })).text(), /editar-agencia/);
+  } finally {
+    srv.close();
+  }
+});
