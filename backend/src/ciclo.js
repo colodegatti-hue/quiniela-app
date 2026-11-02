@@ -431,6 +431,12 @@ export function crearCiclo(opciones = {}) {
           estado.faltantes.shift();
           cargados++;
         } catch (e) {
+          if (e.permanente) {
+            // Sorteo que no sirve (por ejemplo modalidad "MONT"): se saltea para no trabar el historial
+            resumen.salteados = [...(resumen.salteados || []), `${viejo}: ${e.message}`];
+            estado.faltantes.shift();
+            continue;
+          }
           resumen.errores.push(`Historial ${viejo}: ${e.message}`);
           break;
         }
