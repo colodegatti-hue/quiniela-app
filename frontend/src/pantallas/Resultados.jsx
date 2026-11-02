@@ -299,8 +299,8 @@ export default function Resultados() {
         </>
       )}
       {mensaje && <p className="mensaje" role="status">{mensaje}</p>}
-      <PromoQuini6 />
       <CompartirApp />
+      <PromoQuini6 />
     </section>
   );
 }
