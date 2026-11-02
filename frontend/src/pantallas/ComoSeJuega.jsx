@@ -1,5 +1,6 @@
 // Contenido editorial: qué es la quiniela, cómo se juega, cuánto paga y cómo se cobra.
 // Los montos de los ejemplos se calculan con las mismas reglas que usa la app.
+import PromoQuini6 from '../componentes/PromoQuini6.jsx';
 import CompartirApp from '../componentes/CompartirApp.jsx';
 import { TABLAS_DE_PAGO, evaluarDirecta, evaluarRedoblona } from '../../../shared/premios.js';
 import { TURNOS } from '../util/datos.js';
@@ -99,6 +100,8 @@ export default function ComoSeJuega() {
         llamar gratis a la línea de orientación de la Lotería de la Ciudad: <a href="tel:08006666006">0800-666-6006</a>,
         o entrar a <a href="https://www.juegosegurolegal.gob.ar" target="_blank" rel="noreferrer">juegosegurolegal.gob.ar</a>.
       </p>
+
+      <PromoQuini6 />
 
       <p className="nota">
         Esta app no vende jugadas ni tiene relación con las loterías. Los resultados son informativos: verificalos
