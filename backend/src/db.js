@@ -447,11 +447,13 @@ export async function guardarCabeza(fecha, turno, quiniela, cabeza, fuente) {
 
 // ---- Medición de uso -------------------------------------------------
 // Un teléfono abrió la app hoy. entrada = origen si llegó por un enlace (cuenta la visita)
-export async function registrarUso({ dispositivo, origen, pro, dia, entrada }) {
+export async function registrarUso({ dispositivo, origen, pro, dia, entrada, referencia = null, ua = null }) {
   await db().query(
-    `insert into dispositivos (id, origen) values ($1, $2)
-     on conflict (id) do update set ultima_vez = now()`,
-    [dispositivo, origen],
+    `insert into dispositivos (id, origen, referencia, ua) values ($1, $2, $3, $4)
+     on conflict (id) do update set ultima_vez = now(),
+       referencia = coalesce(dispositivos.referencia, excluded.referencia),
+       ua = coalesce(dispositivos.ua, excluded.ua)`,
+    [dispositivo, origen, referencia, ua],
   );
   await db().query(
     `insert into actividad (dia, dispositivo, pro) values ($1, $2, $3)
@@ -483,6 +485,25 @@ export async function resumenAdmin(hoy) {
             count(*) filter (where (primera_vez at time zone 'America/Argentina/Buenos_Aires')::date > $1::date - 30)::int as dias30,
             count(*)::int as total
        from dispositivos where id not in (select dispositivo from admin_dispositivos)`, [hoy]);
+  // Primeras visitas de los últimos 7 días: de qué sitio llegaron y con qué navegador
+  const fuentesNuevas = await q(
+    `select coalesce(referencia, 'sin dato') as referencia, count(*)::int as telefonos
+       from dispositivos where primera_vez > now() - interval '7 days' and id not in (select dispositivo from admin_dispositivos)
+       group by 1 order by 2 desc limit 12`);
+  const navegadores = await q(
+    `select case when ua ilike '%android%' then 'Android'
+                 when ua ilike '%iphone%' or ua ilike '%ipad%' then 'iPhone / iPad'
+                 when ua ilike '%windows%' then 'Windows'
+                 when ua ilike '%macintosh%' then 'Mac'
+                 when ua is null then 'sin dato'
+                 else 'Otro' end as sistema,
+            count(*)::int as telefonos
+       from dispositivos where primera_vez > now() - interval '7 days' and id not in (select dispositivo from admin_dispositivos)
+       group by 1 order by 2 desc`);
+  const [volvieron] = await q(
+    `select count(*) filter (where (ultima_vez at time zone 'America/Argentina/Buenos_Aires')::date > (primera_vez at time zone 'America/Argentina/Buenos_Aires')::date)::int as volvieron,
+            count(*)::int as total
+       from dispositivos where id not in (select dispositivo from admin_dispositivos)`);
   const serie = await q(
     `with dias as (select generate_series($1::date - 29, $1::date, '1 day')::date as dia)
      select to_char(d.dia, 'YYYY-MM-DD') as dia,
@@ -507,7 +528,7 @@ export async function resumenAdmin(hoy) {
             count(*) filter (where plan = 'anual')::int as anuales
        from compras where estado = 'aprobada'`);
   const [avisos] = await q('select count(*)::int as telefonos from suscripciones');
-  return { activos, nuevos, serie, origenes, pro, ventas, avisos };
+  return { activos, nuevos, serie, origenes, pro, ventas, avisos, fuentesNuevas, navegadores, volvieron };
 }
 
 export async function agenciasConDatos(hoy) {

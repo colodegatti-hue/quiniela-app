@@ -109,6 +109,9 @@ create table if not exists dispositivos (
   ultima_vez timestamptz not null default now()
 );
 create index if not exists dispositivos_primera on dispositivos (primera_vez);
+-- Desde 02/11/2026: de qué sitio llegó y el navegador (para separar personas de robots)
+alter table dispositivos add column if not exists referencia text;
+alter table dispositivos add column if not exists ua text;
 create index if not exists dispositivos_origen on dispositivos (origen);
 
 -- Un registro por teléfono y día en que usó la app

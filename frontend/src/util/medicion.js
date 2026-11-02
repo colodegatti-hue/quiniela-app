@@ -47,6 +47,18 @@ export function origenGuardado() {
 }
 
 // Avisa que se usó la app hoy (como mucho una vez por día, salvo que entre por un enlace)
+// De qué sitio llegó la persona: buscador, enlace, la propia app o nada (abrió el ícono)
+function referencia() {
+  try {
+    if (!document.referrer) return 'sin referencia';
+    const h = new URL(document.referrer).hostname;
+    if (!h || h === location.hostname) return 'sin referencia';
+    return h.slice(0, 60);
+  } catch {
+    return 'sin referencia';
+  }
+}
+
 export async function avisarUso({ pro = false } = {}) {
   if (esRobot()) return false;
   const dia = hoy();
@@ -57,7 +69,7 @@ export async function avisarUso({ pro = false } = {}) {
     const r = await fetch(`${API}/api/ping`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ d, o: origenGuardado(), e: entradaAhora, p: Boolean(pro) }),
+      body: JSON.stringify({ d, o: origenGuardado(), e: entradaAhora, p: Boolean(pro), r: referencia() }),
       keepalive: true,
       signal: AbortSignal.timeout(30000),
     });
