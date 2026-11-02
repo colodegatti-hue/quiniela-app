@@ -283,6 +283,11 @@ const PANEL = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta 
 
 <h2>De dónde llegan</h2>
 <div class="caja"><table><thead><tr><th>Origen</th><th>Teléfonos</th></tr></thead><tbody id="origenes"></tbody></table></div>
+<h2>Primeras visitas (últimos 7 días)</h2>
+<p class="nota">Sitio de donde llegaron (vacío = abrieron el ícono de la app o escribieron la dirección). Si ves muchos "sin referencia" con Android y un solo día, puede ser un robot.</p>
+<div class="caja"><table><thead><tr><th>Llegaron desde</th><th>Teléfonos</th></tr></thead><tbody id="fuentes-nuevas"></tbody></table></div>
+<div class="caja"><table><thead><tr><th>Sistema</th><th>Teléfonos</th></tr></thead><tbody id="navegadores"></tbody></table></div>
+<p class="nota" id="volvieron"></p>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -313,6 +318,9 @@ async function cargar() {
   document.querySelectorAll('.editar-agencia').forEach(function (b) {
     b.addEventListener('click', function () { editarAgencia(AGENCIAS[b.dataset.codigo]); });
   });
+  $('fuentes-nuevas').innerHTML = d.fuentesNuevas.length ? d.fuentesNuevas.map((o) => '<tr><td>' + esc(o.referencia) + '</td><td>' + fmt(o.telefonos) + '</td></tr>').join('') : '<tr><td colspan="2" class="nota">Sin visitas nuevas.</td></tr>';
+  $('navegadores').innerHTML = d.navegadores.length ? d.navegadores.map((o) => '<tr><td>' + esc(o.sistema) + '</td><td>' + fmt(o.telefonos) + '</td></tr>').join('') : '<tr><td colspan="2" class="nota">Sin visitas nuevas.</td></tr>';
+  $('volvieron').textContent = 'Volvieron otro día: ' + fmt(d.volvieron.volvieron) + ' de ' + fmt(d.volvieron.total) + ' teléfonos.';
   $('origenes').innerHTML = d.origenes.length ? d.origenes.map((o) => '<tr><td>' + esc(NOMBRES[o.origen] || (o.origen.startsWith('ag:') ? 'Agencia ' + o.origen.slice(3) : o.origen)) + '</td><td>' + fmt(o.telefonos) + '</td></tr>').join('') : '<tr><td colspan="2" class="nota">Sin datos todavía.</td></tr>';
 }
 $('buscar-codigo').addEventListener('submit', async (e) => {

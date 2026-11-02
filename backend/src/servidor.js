@@ -193,7 +193,7 @@ app.post('/api/ping', async (req, res) => {
   if (pingsPorIp.size > 20000) pingsPorIp.clear();
   if (n > 600) return res.status(429).json({ ok: false }); // muchos celulares comparten IP (CGNAT)
   if (/bot|crawl|spider|mediapartners|google-|adsbot|lighthouse|headless|pwabuilder/i.test(String(req.headers['user-agent'] || ''))) return res.json({ ok: true, robot: true });
-  const { d, o, e, p } = req.body || {};
+  const { d, o, e, p, r } = req.body || {};
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(String(d ?? ''))) return res.status(400).json({ ok: false });
   try {
     await registrarUso({
@@ -202,6 +202,8 @@ app.post('/api/ping', async (req, res) => {
       entrada: ORIGEN_OK.test(String(e ?? '')) && e !== 'directo' ? e : null,
       pro: p === true,
       dia: horaArgentina().fecha,
+      referencia: typeof r === 'string' ? r.slice(0, 60) : null,
+      ua: String(req.headers['user-agent'] || '').slice(0, 160),
     });
     res.json({ ok: true });
   } catch (err) {
