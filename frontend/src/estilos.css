@@ -370,6 +370,11 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
   margin-top: 1rem;
 }
 .bloque h3 { margin-top: 0; }
+.promo-quini6 { display: flex; gap: 0.9rem; align-items: flex-start; }
+.promo-quini6 h3 { margin-bottom: 0.2rem; }
+.promo-quini6 .tenue { margin: 0 0 0.7rem; }
+.promo-quini6 .boton { display: inline-block; text-decoration: none; }
+.promo-dibujo { font-size: 2rem; line-height: 1; }
 .bloque > .tenue { margin: 0 0 0.8rem; }
 .buscador { display: grid; gap: 0.8rem; }
 .buscador .entrada-numero, .bloque .entrada-numero {
