@@ -21,7 +21,7 @@ export function faltantes({ vistas = {}, ahora = new Date(), esperadas = quiniel
   for (const turno of turnosYaSorteados(ahora)) {
     const minutos = Math.floor((ahora - instanteDelSorteo(fecha, turno)) / 60000);
     if (minutos > HASTA_MIN) continue;
-    const esperadasTurno = esperadas(turno, 'lotba');
+    const esperadasTurno = esperadas(turno, 'lotba', fecha);
     const vistasTurno = vistas[turno] ?? [];
     const faltan = esperadasTurno.filter((q) => !vistasTurno.includes(q) && minutos >= (q === 'montevideo' ? DEMORA_MONTEVIDEO_MIN : DEMORA_MIN));
     if (faltan.length) r.push({ fecha, turno, quinielas: faltan, minutos, nada: vistasTurno.length === 0 });

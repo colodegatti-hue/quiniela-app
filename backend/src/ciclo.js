@@ -15,6 +15,7 @@
 // Para no gastar la base (Neon gratis), el estado del día se guarda en
 // memoria y la base solo se usa al arrancar, al cambiar el día y al guardar.
 // =====================================================================
+import { sorteaMontevideo } from '../../shared/montevideo.js';
 import * as horarios from './horarios.js';
 import * as baseReal from './db.js';
 import { buscarSorteoLotba } from './fuentes/lotba.js';
@@ -34,9 +35,12 @@ const COMPLETAR_MIN = 150;     // hasta cuántos minutos después del sorteo se 
 
 const PRINCIPALES = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios', 'mendoza'];
 // Quinielas que tiene que traer un sorteo para estar completo
-export function quinielasEsperadas(turno, fuente) {
-  // Montevideo solo viene de la Lotería, en Matutina y Nocturna
-  return fuente === 'lotba' && (turno === 'matutina' || turno === 'nocturna') ? [...PRINCIPALES, 'montevideo'] : PRINCIPALES;
+export function quinielasEsperadas(turno, fuente, fecha) {
+  // Montevideo solo viene de la Lotería, en Matutina y Nocturna,
+  // y no sortea los sábados a la tarde ni en los feriados de Uruguay
+  if (fuente !== 'lotba' || (turno !== 'matutina' && turno !== 'nocturna')) return PRINCIPALES;
+  if (fecha && !sorteaMontevideo(fecha, turno)) return PRINCIPALES;
+  return [...PRINCIPALES, 'montevideo'];
 }
 
 function restarUnDia(fecha) {
@@ -90,7 +94,7 @@ export function crearCiclo(opciones = {}) {
     if (base.quinielasDeFecha) {
       for (const x of await base.quinielasDeFecha(fecha)) {
         estado.vistas[x.turno] = x.quinielas;
-        if (x.fuente === 'lotba' && !esperadas(x.turno, x.fuente).every((q) => x.quinielas.includes(q))) {
+        if (x.fuente === 'lotba' && !esperadas(x.turno, x.fuente, fecha).every((q) => x.quinielas.includes(q))) {
           estado.incompletos.set(x.turno, { numero: x.numero, quinielas: x.quinielas });
         }
       }
@@ -126,7 +130,7 @@ export function crearCiclo(opciones = {}) {
     const res = await base.guardarSorteo(sorteo);
     if (res !== 'omitido') {
       const quinielas = sorteo.extractos.map((e) => e.quiniela);
-      const completo = esperadas(sorteo.turno, sorteo.fuente).every((q) => quinielas.includes(q));
+      const completo = esperadas(sorteo.turno, sorteo.fuente, sorteo.fecha).every((q) => quinielas.includes(q));
       const dato = { fecha: sorteo.fecha, turno: sorteo.turno, numero: sorteo.numero, fuente: sorteo.fuente, resultado: res, quinielas: quinielas.length };
       if (!completo) dato.incompleto = true;
       resumen.guardados.push(dato);
@@ -154,7 +158,7 @@ export function crearCiclo(opciones = {}) {
     estado.vistas[t] = [...new Set([...antes, ...quinielas])];
     if (!nuevas.length) return;
     const todo = { ...sorteo, extractos: Object.values(estado.extractosHoy[t]) };
-    const completo = esperadas(t, 'lotba').every((q) => estado.vistas[t].includes(q));
+    const completo = esperadas(t, 'lotba', sorteo.fecha).every((q) => estado.vistas[t].includes(q));
     alListo(todo, { nuevas, completo });
   }
 
@@ -270,7 +274,7 @@ export function crearCiclo(opciones = {}) {
         if (minutosDesde(t) > VENTANA_MIN) continue;
         // Aunque la Lotería de la Ciudad todavía no haya publicado nada, cada quiniela entra apenas aparece
         const faltan = [...horarios.QUINIELAS, { id: 'montevideo', slug: null }]
-          .filter((q) => esperadas(t, 'lotba').includes(q.id) && !(estado.vistas[t] ?? []).includes(q.id));
+          .filter((q) => esperadas(t, 'lotba', estado.fecha).includes(q.id) && !(estado.vistas[t] ?? []).includes(q.id));
         const juntas = []; // lo que se agregó en esta llamada: se avisa todo junto
         for (const q of faltan) {
           try {
@@ -314,7 +318,7 @@ export function crearCiclo(opciones = {}) {
     // conoce la cabeza, se guarda y se avisa ya (el extracto completo la reemplaza después).
     // Incluye las provincias, que pueden sortear antes que la Ciudad.
     const provinciales = horarios.IDS_PROVINCIALES ?? [];
-    const deTurno = (t) => [...esperadas(t, 'lotba'), ...provinciales];
+    const deTurno = (t) => [...esperadas(t, 'lotba', estado.fecha), ...provinciales];
     const enVentana = horarios.TURNOS.map((x) => x.id)
       .filter((t) => minutosDesde(t) >= -ANTES_MIN && minutosDesde(t) <= VENTANA_MIN && horarios.horaArgentina(ahora).diaSemana !== 0);
     let cabezasDelDia = null;

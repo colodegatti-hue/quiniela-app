@@ -16,8 +16,9 @@ test('Significado de un número (de 1 a 4 cifras: cuentan las 2 últimas)', () =
 });
 
 test('Buscar un sueño por palabra, sin importar acentos ni mayúsculas', () => {
-  assert.deepEqual(buscarSueno('PLATA').map((s) => s.n), ['32']);
-  assert.deepEqual(buscarSueno('perro').map((s) => s.n), ['06']);
+  assert.equal(buscarSueno('PLATA')[0].n, '32');
+  assert.ok(buscarSueno('ambulancia').some((s) => s.n === '73')); // sueños que no están en el nombre
+  assert.equal(buscarSueno('perro')[0].n, '06');
   assert.ok(buscarSueno('musica').some((s) => s.n === '55'));
   assert.deepEqual(buscarSueno('7').map((s) => s.n), ['07']);
   assert.equal(buscarSueno('').length, 100);
