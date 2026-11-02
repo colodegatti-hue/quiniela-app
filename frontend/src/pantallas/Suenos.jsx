@@ -31,7 +31,11 @@ export default function Suenos() {
           {lista.map((s) => (
             <li key={s.n}>
               <span className="ts-numero">{s.n}</span>
-              <span className="ts-nombre">{s.nombre}</span>
+              <span className="ts-dibujo" aria-hidden="true">{s.dibujo}</span>
+              <span className="ts-texto">
+                <span className="ts-nombre">{s.nombre}</span>
+                {s.sonar && <span className="ts-palabras">Soñar con {s.sonar}</span>}
+              </span>
             </li>
           ))}
         </ul>

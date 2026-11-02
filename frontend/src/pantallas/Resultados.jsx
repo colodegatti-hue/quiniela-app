@@ -37,7 +37,7 @@ export function turnosEnVivo(fecha, datos, instante = new Date()) {
     const pasaron = a.minutos - minutosDelDia(t.hora);
     if (pasaron < 0 || pasaron > 90) continue;
     // Solo las principales: algunas provincias no sortean todos los turnos
-    const faltan = PRINCIPALES.filter((q) => sortea(q.id, t.id)).some((q) => !extractoDe(datos, t.id, q.id));
+    const faltan = PRINCIPALES.filter((q) => sortea(q.id, t.id, fecha)).some((q) => !extractoDe(datos, t.id, q.id));
     if (faltan) r.add(t.id);
   }
   return r;
@@ -185,7 +185,7 @@ export default function Resultados() {
 
           {vista === 'dia' && datos && !error && (
             <>
-              <TablaDelDia datos={datos} enVivo={enVivo} jugadasCabeza={jugadasCabeza} alElegir={elegirTurno} quinielas={visibles} />
+              <TablaDelDia fecha={fecha} datos={datos} enVivo={enVivo} jugadasCabeza={jugadasCabeza} alElegir={elegirTurno} quinielas={visibles} />
               <ElegirQuinielas />
               <p className="nota">Tocá un número para ver los 20 de ese turno. Las quinielas van apareciendo a medida que cada lotería las publica.</p>
             </>

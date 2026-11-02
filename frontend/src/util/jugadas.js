@@ -85,7 +85,7 @@ export function controlarJugada(jugada, resultados, instante = new Date(), fecha
   const quinielas = QUINIELAS.map((q) => q.id).filter((q) => jugada.quinielas.includes(q));
   for (const turno of turnos) {
     for (const quiniela of quinielas) {
-      if (!sortea(quiniela, turno)) continue; // Montevideo no sortea en todos los turnos
+      if (!sortea(quiniela, turno, fecha)) continue; // Montevideo no sortea en todos los turnos
       const extracto = extractoDe(resultados, turno, quiniela);
       if (!extracto) {
         const hora = turnoPorId(turno).hora;

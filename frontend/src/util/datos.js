@@ -1,3 +1,4 @@
+import { sorteaMontevideo } from '../../../shared/montevideo.js';
 // =====================================================================
 // datos.js — Quinielas, turnos y conexión con el servidor
 // (los mismos datos que backend/src/horarios.js)
@@ -48,8 +49,10 @@ export function guardarVisibles(ids) {
   try { window.dispatchEvent(new Event(EVENTO_VER)); } catch { /* fuera del navegador */ }
 }
 
-// ¿Esa quiniela sortea en ese turno? (Montevideo solo en Matutina y Nocturna)
-export function sortea(quiniela, turno) {
+// ¿Esa quiniela sortea en ese turno? (Montevideo solo en Matutina y Nocturna,
+// la Matutina de lunes a viernes, y nunca en los feriados de Uruguay)
+export function sortea(quiniela, turno, fecha) {
+  if (quiniela === 'montevideo' && fecha) return sorteaMontevideo(fecha, turno);
   const q = QUINIELAS.find((x) => x.id === quiniela);
   return !q?.soloTurnos || q.soloTurnos.includes(turno);
 }
