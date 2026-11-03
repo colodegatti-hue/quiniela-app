@@ -702,3 +702,8 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 .pozo-premios { width: 100%; border-collapse: collapse; font-size: 0.95rem; margin: 0.4rem 0; }
 .pozo-premios th, .pozo-premios td { text-align: left; padding: 0.35rem 0.3rem; border-bottom: 1px solid var(--linea); }
 .pozo-premios th { color: var(--tenue); font-weight: 600; font-size: 0.85rem; }
+
+/* El sello PRO usa el mismo amarillo que "al Toque" (también en modo oscuro) */
+@media (prefers-color-scheme: dark) {
+  .boton-pro.es-pro, .pro-sello { background: #ffe27a; border-color: #ffe27a; color: #14261e; }
+}
