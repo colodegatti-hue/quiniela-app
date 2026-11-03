@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import PanelAvisos from '../componentes/PanelAvisos.jsx';
 import { sincronizarJugadas, marcarPremiosVistos } from '../util/avisos.js';
-import { PRINCIPALES, PROVINCIALES, TURNOS, nombreQuiniela, turnoPorId, obtenerResultados } from '../util/datos.js';
+import { PRINCIPALES, PROVINCIALES, TURNOS, nombreQuiniela, turnoPorId, obtenerResultados, sortea } from '../util/datos.js';
 import { hoy, sumarDias, fechaCorta, formatoPesos, yaEsLaHora, diaSemana } from '../util/fechas.js';
 import {
   UBICACIONES, cargarJugadas, guardarJugadas, nuevaJugada, validarJugada, controlarJugada, resumenJugada, fechaDeControl, DIAS_SORTEO,
@@ -21,8 +21,12 @@ function turnosPendientes(fecha) {
 
 const FORM_INICIAL = () => {
   const fecha = fechasPosibles()[0];
-  return { tipo: 'directa', numero: '', ubicacion: 'cabeza', numero2: '', ubicacion2: 'a_los_5', quinielas: ['ciudad', 'provincia'], turnos: turnosPendientes(fecha), fecha, monto: '', fija: false, dias: DIAS_SORTEO };
+  return { tipo: 'directa', numero: '', ubicacion: 'cabeza', numero2: '', ubicacion2: 'a_los_5', quinielas: ['ciudad', 'provincia'], turnos: turnosPendientes(fecha), fecha, monto: '', montoTotal: false, fija: false, dias: DIAS_SORTEO };
 };
+
+// En cuántas quinielas y turnos se reparte la plata (Montevideo no sortea en todos)
+const combinaciones = (f) => f.quinielas.reduce((n, q) => n + f.turnos.filter((t) => sortea(q, t)).length, 0);
+const redondear = (x) => Math.round(x * 100) / 100;
 
 function alternar(lista, valor) {
   return lista.includes(valor) ? lista.filter((x) => x !== valor) : [...lista, valor];
@@ -38,7 +42,9 @@ function Formulario({ alGuardar, alCancelar }) {
     e.preventDefault();
     const problema = validarJugada(f);
     if (problema) return setError(problema);
-    alGuardar(nuevaJugada(f));
+    // Si cargó el total, se guarda lo que va a cada quiniela y turno
+    const monto = f.montoTotal && f.monto ? String(redondear(Number(f.monto) / combinaciones(f))) : f.monto;
+    alGuardar(nuevaJugada({ ...f, monto }));
   }
 
   return (
@@ -148,9 +154,22 @@ function Formulario({ alGuardar, alCancelar }) {
           </select>
         </label>
         <label className="campo">
-          <span>Monto por quiniela y turno</span>
+          <span>Monto</span>
           <input inputMode="decimal" placeholder="Opcional" value={f.monto} onChange={(e) => cambiar('monto', e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))} />
         </label>
+      </div>
+      <div className="campo">
+        <div className="segmentado monto-modo" role="group" aria-label="Cómo cargaste el monto">
+          <button type="button" aria-pressed={!f.montoTotal} onClick={() => cambiar('montoTotal', false)}>Por quiniela y turno</button>
+          <button type="button" aria-pressed={f.montoTotal} onClick={() => cambiar('montoTotal', true)}>Total a jugar</button>
+        </div>
+        {Number(f.monto) > 0 && combinaciones(f) > 0 && (
+          <small className="monto-reparto">
+            {f.montoTotal
+              ? `${formatoPesos(Number(f.monto))} repartidos en ${combinaciones(f)} (quinielas × turnos) = ${formatoPesos(redondear(Number(f.monto) / combinaciones(f)))} a cada una.`
+              : `${formatoPesos(Number(f.monto))} × ${combinaciones(f)} (quinielas × turnos) = ${formatoPesos(Number(f.monto) * combinaciones(f))} en total.`}
+          </small>
+        )}
       </div>
 
       {error && <p className="error" role="alert">{error}</p>}
