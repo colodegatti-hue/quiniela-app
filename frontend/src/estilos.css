@@ -387,11 +387,31 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 .buscador .boton { justify-self: start; }
 .resultado-busqueda { margin-top: 1rem; }
 .resumen { font-weight: 600; margin: 0 0 0.6rem; }
-.grupo-fecha h4 { margin: 0.8rem 0 0.2rem; font-family: var(--numeros); font-size: 1.05rem; color: var(--tenue); }
+.busqueda-cifras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.5rem; }
+.busqueda-cifras div {
+  background: var(--fondo); border: 1px solid var(--linea); border-radius: 12px;
+  padding: 0.5rem 0.4rem; text-align: center; display: grid;
+}
+.busqueda-cifras strong { font-family: var(--numeros); font-size: 1.6rem; line-height: 1.1; }
+.busqueda-cifras span { font-size: 0.8rem; color: var(--tenue); }
+.busqueda-cifras .destacada strong { color: var(--rojo); }
+.busqueda-ultima { margin: 0 0 0.7rem; font-size: 0.9rem; }
+.grupo-fecha { margin-top: 0.9rem; }
+.grupo-fecha h4 { margin: 0 0 0.3rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--linea); font-family: var(--numeros); font-size: 1.1rem; }
 .grupo-fecha h4::first-letter { text-transform: uppercase; }
-.grupo-fecha ul { list-style: none; margin: 0; padding: 0; }
-.grupo-fecha li { padding: 0.35rem 0; border-top: 1px solid var(--linea); font-size: 0.95rem; }
-.grupo-fecha li.a-la-cabeza { font-weight: 600; color: var(--rojo); }
+.grupo-fecha h4 .tenue { font-weight: 400; font-size: 0.9rem; }
+.grupo-turno { margin: 0.45rem 0 0.2rem; }
+.gt-nombre { margin: 0 0 0.3rem; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tenue); }
+.fichas-acierto { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.ficha-acierto {
+  display: inline-flex; align-items: baseline; gap: 0.35rem;
+  background: var(--fondo); border: 1px solid var(--linea); border-radius: 999px;
+  padding: 0.25rem 0.7rem; font-size: 0.88rem;
+}
+.fa-pos { font-family: var(--numeros); font-weight: 700; color: var(--verde); }
+.ficha-acierto.cabeza { background: var(--rojo); border-color: var(--rojo); color: #fff; font-weight: 600; }
+.ficha-acierto.cabeza .fa-pos { color: #fff; }
+.ver-mas { margin-top: 1rem; }
 .formulario.plano { border: 0; padding: 0; margin: 0; background: none; }
 .calculo { border-top: 1px solid var(--linea); padding-top: 0.8rem; }
 .calculo p { margin: 0 0 0.4rem; }
