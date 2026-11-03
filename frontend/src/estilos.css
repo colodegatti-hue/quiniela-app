@@ -267,7 +267,10 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
   padding: 0.4rem 0.85rem;
   cursor: pointer;
 }
-.opcion.activa { background: var(--verde-claro); border-color: var(--verde); color: var(--verde); font-weight: 600; }
+.opcion.activa { background: var(--verde); border-color: var(--verde); color: #fff; font-weight: 600; }
+.opcion.activa::before { content: '✓ '; }
+.opcion.activa .tenue { color: inherit; opacity: 0.85; }
+@media (prefers-color-scheme: dark) { .opcion.activa { color: #0b1a13; } }
 .acciones { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 
 .jugada {
@@ -464,7 +467,8 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
   border: 0; background: none; border-radius: 999px;
   padding: 0.38rem 0.8rem; cursor: pointer; color: var(--tenue); font-weight: 600;
 }
-.segmentado button[aria-pressed="true"] { background: var(--verde-claro); color: var(--verde); }
+.segmentado button[aria-pressed="true"] { background: var(--verde); color: #fff; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .segmentado button[aria-pressed="true"] { color: #0b1a13; } }
 .cargando { opacity: 0.55; transition: opacity 0.2s; }
 
 /* ---- Listas de salidores y atrasados ---- */
@@ -727,3 +731,8 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 @media (prefers-color-scheme: dark) {
   .boton-pro.es-pro, .pro-sello { background: #ffe27a; border-color: #ffe27a; color: #14261e; }
 }
+
+/* Monto: por quiniela y turno, o total de la jugada */
+.monto-modo { margin-top: 0.4rem; }
+.monto-modo button { font-size: 0.85rem; padding: 0.3rem 0.6rem; }
+.monto-reparto { display: block; margin-top: 0.35rem; color: var(--tenue); }
