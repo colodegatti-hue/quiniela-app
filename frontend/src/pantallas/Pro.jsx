@@ -163,7 +163,7 @@ export default function Pro() {
     <section className="pantalla">
       <h2>Quiniela Pro</h2>
 
-      {confirmando && <Confirmacion alTerminar={() => setConfirmando(false)} />}
+      {confirmando && !pro && <Confirmacion alTerminar={() => setConfirmando(false)} />}
 
       {pro ? (
         <section className="bloque tarjeta-pro">

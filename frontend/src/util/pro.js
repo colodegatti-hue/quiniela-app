@@ -74,6 +74,7 @@ export async function activarCodigo(codigo) {
   guardarPro({ codigo: r.codigo, plan: r.plan, vence: r.vence, revisado: new Date().toISOString() });
   avisarCodigoAlServidor(r.codigo);
   if (!r.activo) return { ok: false, error: 'Ese código está vencido. Podés renovarlo abajo.' };
+  escribir(CLAVE_PENDIENTE, null); // ya es Pro: no queda nada que confirmar
   return { ok: true };
 }
 
