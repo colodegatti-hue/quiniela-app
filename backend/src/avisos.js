@@ -21,6 +21,8 @@ const NOMBRES = {
 const ORDEN = Object.keys(NOMBRES);
 const QUINIELAS_POR_DEFECTO = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios'];
 const nombreTurno = (id) => TURNOS.find((t) => t.id === id)?.nombre ?? id;
+// Para escribir "en la Previa" (y no "en la La Previa")
+const enLa = (id) => `en la ${nombreTurno(id).replace(/^La /, '')}`;
 
 const pesos = (v) => '$' + Math.round(v).toLocaleString('es-AR');
 
@@ -73,7 +75,7 @@ export function armarAviso(sub, sorteo) {
       return `${NOMBRES[a.quiniela]}: el ${a.numero} ${donde}${a.premio ? ` (${pesos(a.premio)} estimado)` : ''}`;
     });
     return {
-      titulo: numeros.length === 1 ? `¡Salió tu ${numeros[0]} en la ${nombreTurno(sorteo.turno)}!` : `¡Salieron ${numeros.length} de tus números en la ${nombreTurno(sorteo.turno)}!`,
+      titulo: numeros.length === 1 ? `¡Salió tu ${numeros[0]} ${enLa(sorteo.turno)}!` : `¡Salieron ${numeros.length} de tus números ${enLa(sorteo.turno)}!`,
       cuerpo: lineas.join('\n'),
       url: '/#/jugadas',
       etiqueta,
@@ -112,7 +114,7 @@ export function armarAviso(sub, sorteo) {
       if (hallados.length > 4) lineas.push(`y ${hallados.length - 4} más`);
       if (quiereCabezas) lineas.push(`Cabezas: ${cabezas.join(' · ')}`);
       return {
-        titulo: `Salió ${lista} en la ${nombreTurno(sorteo.turno)}`,
+        titulo: `Salió ${lista} ${enLa(sorteo.turno)}`,
         cuerpo: lineas.join('\n'),
         url: '/#/resultados',
         etiqueta,
