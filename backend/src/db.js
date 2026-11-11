@@ -230,6 +230,48 @@ export async function numerosFaltantes(desde, hasta) {
   return r.rows.map((x) => Number(x.n));
 }
 
+// ---- Resumen público de cada número (para las páginas /numeros/NN/) ----
+// Suma las quinielas principales desde una fecha: veces a la cabeza, veces
+// en los 20, última cabeza y en qué quinielas salió más a la cabeza.
+export async function resumenNumeros(desde, quinielas) {
+  const r = await db().query(
+    `with e as (select fecha, turno, quiniela, numeros from extractos where fecha >= $1 and quiniela = any($2)),
+     u as (select e.fecha, e.turno, e.quiniela, x.pos, right(x.valor, 2) as n
+           from e cross join lateral unnest(e.numeros) with ordinality as x(valor, pos))
+     select n,
+            count(*) filter (where pos = 1)::int as cabezas,
+            count(*)::int as en20,
+            (array_agg(fecha::text || '|' || turno || '|' || quiniela
+               order by fecha desc, array_position(array['nocturna','vespertina','matutina','primera','previa'], turno))
+               filter (where pos = 1))[1] as ultima
+     from u group by n`,
+    [desde, quinielas],
+  );
+  const q = await db().query(
+    `select right(numeros[1], 2) as n, quiniela, count(*)::int as c
+     from extractos where fecha >= $1 and quiniela = any($2) group by 1, 2`,
+    [desde, quinielas],
+  );
+  const t = await db().query('select count(*)::int as sorteos from extractos where fecha >= $1 and quiniela = any($2)', [desde, quinielas]);
+  const porQuiniela = {};
+  for (const x of q.rows) (porQuiniela[x.n] ||= []).push({ quiniela: x.quiniela, cabezas: x.c });
+  const porNumero = new Map(r.rows.map((x) => [x.n, x]));
+  const numeros = [];
+  for (let i = 0; i < 100; i++) {
+    const n = String(i).padStart(2, '0');
+    const x = porNumero.get(n);
+    const [fecha, turno, quiniela] = x?.ultima ? x.ultima.split('|') : [];
+    numeros.push({
+      n,
+      cabezas: x?.cabezas ?? 0,
+      en20: x?.en20 ?? 0,
+      ultimaCabeza: fecha ? { fecha, turno, quiniela } : null,
+      quinielas: (porQuiniela[n] || []).sort((a, b) => b.cabezas - a.cabezas),
+    });
+  }
+  return { desde, sorteos: t.rows[0].sorteos, quinielas, numeros };
+}
+
 // ---- Estadísticas ---------------------------------------------------
 // Para una quiniela: cuántas veces salió cada número de 2 cifras (00 a 99)
 // desde una fecha, y hace cuántos sorteos salió por última vez (en todo el historial).

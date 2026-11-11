@@ -109,6 +109,18 @@ test('Base real: búsqueda de 4 cifras con cero adelante y sin resultados', opci
   assert.equal(nada.sorteos, 0);
 });
 
+test('Base real: resumen público de los 100 números', opciones, async () => {
+  const r = await db.resumenNumeros('2026-10-08', ['ciudad', 'cordoba']);
+  assert.equal(r.numeros.length, 100);
+  assert.ok(r.sorteos >= 2);
+  const n79 = r.numeros.find((x) => x.n === '79');
+  assert.ok(n79.cabezas >= 2); // 9179 a la cabeza en Ciudad matutina y vespertina
+  assert.equal(n79.ultimaCabeza.fecha, '2026-10-08');
+  assert.equal(n79.quinielas[0].quiniela, 'ciudad');
+  const suma = r.numeros.reduce((s, x) => s + x.cabezas, 0);
+  assert.equal(suma, r.sorteos); // una cabeza por sorteo
+});
+
 test('Base real: números de sorteo faltantes', opciones, async () => {
   const f = await db.numerosFaltantes(53005, 53012);
   assert.deepEqual(f, [53012, 53011, 53008, 53007, 53006, 53005]);

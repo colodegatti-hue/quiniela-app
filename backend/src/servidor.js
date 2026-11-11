@@ -12,7 +12,7 @@
 import { buscarCabezasVivi } from './fuentes/vivitusuerte.js';
 import express from 'express';
 import {
-  conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero, guardarSorteo, estadisticas,
+  conectar, resultadosDeFecha, demorasRecientes, ultimoNumeroLotba, buscarNumero, guardarSorteo, estadisticas, resumenNumeros,
   guardarSuscripcion, actualizarSuscripcion, borrarSuscripcion, marcarPremiosVistos, crearArrepentimiento, listarArrepentimientos,
   registrarUso, esProDispositivo, alertaNueva, pozosDeFecha,
 } from './db.js';
@@ -265,6 +265,22 @@ app.get('/api/buscar', async (req, res) => {
   } catch (e) {
     console.error('[buscar] error:', e);
     res.status(503).json({ error: 'No se pudo hacer la búsqueda' });
+  }
+});
+
+// Resumen público de los 100 números en el último año (páginas /numeros/NN/).
+// /api/numeros/resumen  — suma las 7 quinielas principales; se calcula una vez por día.
+const QUINIELAS_RESUMEN = ['ciudad', 'provincia', 'santafe', 'cordoba', 'entrerios', 'mendoza', 'montevideo'];
+let cacheResumen = null;
+app.get('/api/numeros/resumen', async (req, res) => {
+  const hoy = horaArgentina().fecha;
+  try {
+    if (cacheResumen?.dia !== hoy) cacheResumen = { dia: hoy, datos: await resumenNumeros(restarDias(hoy, 364), QUINIELAS_RESUMEN) };
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.json(cacheResumen.datos);
+  } catch (e) {
+    console.error('[numeros/resumen] error:', e);
+    res.status(503).json({ error: 'No se pudo calcular el resumen' });
   }
 });
 

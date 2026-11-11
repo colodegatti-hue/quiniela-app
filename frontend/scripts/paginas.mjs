@@ -5,6 +5,8 @@
 //   /resultados/                    índice de días
 //   /resultados/AAAA-MM-DD/         resultados de ese día (las 22 quinielas)
 //   /quiniela/<id>/                 última semana de esa quiniela
+//   /numeros/ y /numeros/NN/        significado y estadísticas de cada número
+//   /guias/ y /guias/<tema>/        guías escritas
 //   /sitemap.xml y /robots.txt
 // Si el servidor no responde, no frena el build (la app sigue igual).
 // =====================================================================
@@ -12,6 +14,9 @@ import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { QUINIELAS, TURNOS } from '../src/util/datos.js';
 import { suenoDe, SUENOS } from '../../shared/suenos.js';
 import { TABLAS_DE_PAGO } from '../../shared/premios.js';
+import { paginasDeNumeros } from './numeros.mjs';
+import { paginasDeGuias } from './guias.mjs';
+import { resumenDelDia, masSalidosDeLaSemana } from './resumen.mjs';
 
 const SITIO = 'https://quinielaaltoque.app';
 const API = (process.env.VITE_API_URL || 'https://api.quinielaaltoque.app').replace(/\/$/, '');
@@ -40,6 +45,17 @@ function ultimosDias(n) {
   return r;
 }
 
+async function traerResumenNumeros() {
+  try {
+    const r = await fetch(`${API}/api/numeros/resumen`, { signal: AbortSignal.timeout(60000) });
+    if (!r.ok) throw new Error(`${r.status}`);
+    return await r.json();
+  } catch (e) {
+    console.warn('[páginas] resumen de números:', e.message);
+    return null;
+  }
+}
+
 async function traer(fecha) {
   const r = await fetch(`${API}/api/resultados?fecha=${fecha}`, { signal: AbortSignal.timeout(30000) });
   if (!r.ok) throw new Error(`${r.status}`);
@@ -57,9 +73,19 @@ table{border-collapse:collapse;width:100%;background:var(--sup);border-radius:12
 th{font-size:13px;color:var(--tenue)}td.n{font-weight:700;color:var(--rojo);font-variant-numeric:tabular-nums}th a{color:inherit}
 .scroll{overflow-x:auto}details{background:var(--sup);border-radius:12px;padding:8px 12px;margin:8px 0}summary{cursor:pointer;font-weight:600}
 ol.ext{columns:2;margin:8px 0;padding-left:26px;font-variant-numeric:tabular-nums}nav.dias a,nav.q a{display:inline-block;margin:3px 6px 3px 0;color:var(--verde)}
-.tenue{color:var(--tenue);font-size:14px}footer{max-width:860px;margin:0 auto;padding:0 16px 30px;color:var(--tenue);font-size:13px}`;
+.tenue{color:var(--tenue);font-size:14px}footer{max-width:860px;margin:0 auto;padding:0 16px 30px;color:var(--tenue);font-size:13px}
+.ruta{font-size:13px;color:var(--tenue);margin:6px 0 0}.ruta a{color:var(--tenue)}
+a.chip{display:inline-block;background:var(--sup);border:1px solid var(--linea);border-radius:99px;padding:3px 11px;margin:3px 2px;color:var(--tinta);text-decoration:none;font-size:14px}
+.cifras{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}.cifras div{background:var(--sup);border:1px solid var(--linea);border-radius:12px;text-align:center;padding:8px 4px}
+.cifras b{display:block;font-size:24px;font-variant-numeric:tabular-nums}.cifras span{font-size:12px;color:var(--tenue)}
+.numero-cab{display:grid;grid-template-columns:auto auto 1fr;gap:12px;align-items:center;margin-top:8px}.numero-cab h1{margin:0;font-size:21px}
+.n-grande{font-size:64px;font-weight:800;color:var(--rojo);line-height:1}.n-dibujo{font-size:44px}
+.resumen{background:var(--sup);border-left:4px solid #e2b93b;border-radius:8px;padding:10px 12px;margin:12px 0}
+ul.grilla{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}ul.grilla a{display:block;background:var(--sup);border-radius:10px;padding:7px 10px;color:var(--tinta);text-decoration:none}ul.grilla b{color:var(--rojo)}
+ul.lista-guias{padding-left:18px}ul.lista-guias li{margin:10px 0}a{color:var(--verde)}`;
 
-function pagina({ titulo, descripcion, ruta, cuerpo }) {
+// anuncios: solo en las páginas con texto propio (números, guías, resultados con resumen)
+function pagina({ titulo, descripcion, ruta, cuerpo, anuncios = false }) {
   return `<!doctype html>
 <html lang="es-AR">
 <head>
@@ -74,8 +100,7 @@ function pagina({ titulo, descripcion, ruta, cuerpo }) {
 <meta property="og:description" content="${esc(descripcion)}">
 <meta property="og:url" content="${SITIO}${ruta}">
 <meta property="og:type" content="website">
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7263397471173227" crossorigin="anonymous"></script>
-<style>${ESTILO}</style>
+${anuncios ? '<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7263397471173227" crossorigin="anonymous"></script>\n' : ''}<style>${ESTILO}</style>
 </head>
 <body>
 <header><a href="/">Quiniela <span>al Toque</span></a></header>
@@ -87,8 +112,9 @@ ${cuerpo}
 </html>`;
 }
 
-const CTA = '<a class="cta" href="/">Abrí la app: resultados al instante y avisos en tu celular</a>';
-const MENU = '<p><a href="/resultados/">Resultados por día</a> · <a href="/como-jugar/">Cómo se juega</a> · <a href="/suenos/">Significado de los sueños</a></p>';
+const cta = (texto = 'Abrí la app: resultados al instante y avisos en tu celular') => `<a class="cta" href="/">${esc(texto)}</a>`;
+const CTA = cta();
+const MENU = '<p><a href="/resultados/">Resultados por día</a> · <a href="/numeros/">Los números del 00 al 99</a> · <a href="/guias/">Guías</a> · <a href="/como-jugar/">Cómo se juega</a> · <a href="/suenos/">Significado de los sueños</a></p>';
 
 function tablaCabezas(datos) {
   const filas = QUINIELAS.map((q) => {
@@ -130,6 +156,7 @@ async function principal() {
     try { porDia[f] = await traer(f); } catch (e) { console.warn(`[páginas] ${f}: ${e.message}`); }
   }
   const conDatos = dias.filter((f) => porDia[f]);
+  const resumenNumeros = await traerResumenNumeros();
   if (!conDatos.length) { console.warn('[páginas] el servidor no respondió: no se generan páginas'); return; }
   const hoy = hoyArgentina();
   const urls = ['/', '/resultados/'];
@@ -142,12 +169,14 @@ async function principal() {
     const siguiente = conDatos[i - 1];
     const cuerpo = `<h1>${esc(titulo)}</h1>
 <p>Cabezas de la Previa, Primera, Matutina, Vespertina y Nocturna de las 22 quinielas: Ciudad, Provincia de Buenos Aires, Santa Fe, Córdoba, Entre Ríos, Mendoza, Montevideo y 15 provincias más.${esHoy ? ' Esta página se actualiza durante el día; en la app los ves apenas salen.' : ''}</p>
+${resumenDelDia(f, porDia[f])}
 ${CTA}
 ${MENU}
 ${tablaCabezas(porDia[f])}
+${masSalidosDeLaSemana(conDatos.slice(i, i + 6), porDia)}
 ${extractos(porDia[f])}
 <p>${anterior ? `<a href="/resultados/${anterior}/">← ${fechaCorta(anterior)}</a>` : ''} ${siguiente ? ` · <a href="/resultados/${siguiente}/">${fechaCorta(siguiente)} →</a>` : ''} · <a href="/resultados/">Todos los días</a></p>`;
-    await escribir(`/resultados/${f}/`, pagina({ titulo, descripcion: `Resultados de la quiniela del ${fechaLarga(f)}: cabezas y los 20 números de Ciudad, Provincia, Santa Fe, Córdoba y 18 quinielas más.`, ruta: `/resultados/${f}/`, cuerpo }));
+    await escribir(`/resultados/${f}/`, pagina({ titulo, descripcion: `Resultados de la quiniela del ${fechaLarga(f)}: cabezas y los 20 números de Ciudad, Provincia, Santa Fe, Córdoba y 18 quinielas más.`, ruta: `/resultados/${f}/`, cuerpo, anuncios: true }));
     urls.push(`/resultados/${f}/`);
   }
 
@@ -185,6 +214,7 @@ ${extractos(porDia[f])}
   const P = TABLAS_DE_PAGO.LOTBA;
   const v = (n) => n.toLocaleString('es-AR', { maximumFractionDigits: 2 });
   await escribir('/como-jugar/', pagina({
+    anuncios: true,
     titulo: 'Cómo se juega a la quiniela: ubicaciones, premios y redoblona',
     descripcion: 'Guía simple de la quiniela argentina: qué es la cabeza, cómo jugar a los 5, 10 y 20, cuánto paga cada apuesta, la redoblona y cómo se cobra.',
     ruta: '/como-jugar/',
@@ -207,24 +237,36 @@ ${[1, 2, 3, 4].map((c) => `<tr><th>${c}</th>${[1, 5, 10, 20].map((l) => `<td>${v
 <p>Los premios se cobran en las agencias oficiales con la boleta original. Antes de ir, verificá el resultado con el extracto oficial de la lotería.</p>
 <h2>Juego responsable</h2>
 <p>La quiniela es solo para mayores de 18 años. Jugá con plata que no necesites para otra cosa y poné un límite. Si el juego te está trayendo problemas, pedí ayuda: hay líneas gratuitas como la de la Lotería de la Ciudad (0800-666-6006).</p>
+<p>Más guías: <a href="/guias/cuanto-paga/">cuánto paga</a>, <a href="/guias/redoblona/">la redoblona</a>, <a href="/guias/horarios/">horarios</a>, <a href="/guias/controlar-la-boleta/">cómo controlar la boleta</a>.</p>
 ${CTA}`,
   }));
   urls.push('/como-jugar/');
 
   // Significado de los sueños (00 al 99)
   await escribir('/suenos/', pagina({
+    anuncios: true,
     titulo: 'La quiniela de los sueños: significado de los números del 00 al 99',
     descripcion: 'Tabla completa de la quiniela de los sueños: qué número jugar según lo que soñaste, del 00 (los huevos) al 99 (el hermano).',
     ruta: '/suenos/',
     cuerpo: `<h1>La quiniela de los sueños</h1>${MENU}
 <p>La tradición dice que lo que soñaste tiene un número. Esta es la tabla más difundida en Argentina, del 00 al 99. Hay pequeñas variantes según la zona.</p>
 <div class="scroll"><table><thead><tr><th>Número</th><th>Significado</th><th>También</th></tr></thead><tbody>
-${SUENOS.map((s) => `<tr><td class="n">${s.n}</td><td>${esc(s.dibujo)} ${esc(s.nombre)}</td><td class="tenue">${esc(s.palabras)}</td></tr>`).join('')}
+${SUENOS.map((s) => `<tr><td class="n"><a href="/numeros/${s.n}/">${s.n}</a></td><td>${esc(s.dibujo)} <a href="/numeros/${s.n}/">${esc(s.nombre)}</a></td><td class="tenue">${esc(s.sonar)}</td></tr>`).join('')}
 </tbody></table></div>
 <p class="tenue">Es una costumbre popular: los números no tienen más chances por lo que soñaste. Jugá con responsabilidad.</p>
 ${CTA}`,
   }));
   urls.push('/suenos/');
+
+  // Números (00 al 99) y guías
+  const extra = [
+    ...paginasDeNumeros({ resumen: resumenNumeros, hoy, pagina, esc, cta, menu: MENU }),
+    ...paginasDeGuias({ pagina, esc, cta, menu: MENU }),
+  ];
+  for (const p of extra) {
+    await escribir(p.ruta, p.html);
+    urls.push(p.ruta);
+  }
 
   // Portada: contenido real dentro de la app (lo ven los robots sin JavaScript; la app lo reemplaza al abrir)
   try {
@@ -241,7 +283,7 @@ ${CTA}`,
 <p>Resultados de las 22 quinielas de Argentina apenas salen: Ciudad, Provincia de Buenos Aires, Santa Fe, Córdoba, Entre Ríos, Mendoza, Montevideo y 15 provincias más. Avisos en el celular con la cabeza de cada sorteo, control automático de tus jugadas con el premio estimado, estadísticas de números salidores y atrasados, y la quiniela de los sueños.</p>
 <h2>Cabezas del ${fechaLarga(ultimo)}</h2>
 <table><thead><tr><th>Quiniela</th>${TURNOS.map((t) => `<th>${esc(t.nombre)} ${t.hora}</th>`).join('')}</tr></thead><tbody>${filas}</tbody></table>
-<p><a href="/resultados/${ultimo}/">Ver los 20 números de cada quiniela</a> · <a href="/resultados/">Días anteriores</a> · <a href="/como-jugar/">Cómo se juega</a> · <a href="/suenos/">Significado de los sueños</a></p>
+<p><a href="/resultados/${ultimo}/">Ver los 20 números de cada quiniela</a> · <a href="/resultados/">Días anteriores</a> · <a href="/numeros/">Los números del 00 al 99</a> · <a href="/guias/">Guías</a> · <a href="/como-jugar/">Cómo se juega</a> · <a href="/suenos/">Significado de los sueños</a></p>
 <p>Por quiniela: ${QUINIELAS.map((q) => `<a href="/quiniela/${q.id}/">${esc(q.nombre)}</a>`).join(', ')}.</p>
 </div>`;
     const indice = new URL('index.html', SALIDA);
