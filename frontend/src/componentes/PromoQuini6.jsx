@@ -6,7 +6,7 @@ export const ENLACE_QUINI6 = 'https://quini6-tau.vercel.app/ir.html';
 export default function PromoQuini6() {
   return (
     <aside className="bloque promo-quini6">
-      <span className="promo-dibujo" aria-hidden="true">🍀</span>
+      <img className="promo-logo" src="/iconos/quini6.png" alt="" width="56" height="56" loading="lazy" />
       <div>
         <h3>¿Jugás al Quini 6?</h3>
         <p className="tenue">Controlá tu boleta al toque con nuestra app gratis.</p>

@@ -378,7 +378,7 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 .promo-quini6 .tenue { margin: 0 0 0.7rem; }
 .promo-quini6 a.boton { display: inline-block; text-decoration: none; color: #fff; }
 @media (prefers-color-scheme: dark) { .promo-quini6 a.boton { color: #0b1a13; } }
-.promo-dibujo { font-size: 2rem; line-height: 1; }
+.promo-logo { width: 56px; height: 56px; border-radius: 14px; flex-shrink: 0; }
 .bloque > .tenue { margin: 0 0 0.8rem; }
 .buscador { display: grid; gap: 0.8rem; }
 .buscador .entrada-numero, .bloque .entrada-numero {
