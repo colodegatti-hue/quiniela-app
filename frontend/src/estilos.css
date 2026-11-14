@@ -736,3 +736,17 @@ h3 { font-family: var(--numeros); font-weight: 600; font-size: 1.3rem; margin: 1
 .monto-modo { margin-top: 0.4rem; }
 .monto-modo button { font-size: 0.85rem; padding: 0.3rem 0.6rem; }
 .monto-reparto { display: block; margin-top: 0.35rem; color: var(--tenue); }
+
+/* Cartel de avisos: ejemplo de cómo se ve la notificación */
+.aviso-ejemplo {
+  display: flex; gap: 0.6rem; align-items: flex-start;
+  background: var(--fondo); border: 1px solid var(--linea); border-radius: 14px;
+  padding: 0.6rem 0.7rem; margin: 0.6rem 0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.aviso-ejemplo img { border-radius: 8px; flex-shrink: 0; }
+.aviso-ejemplo p { margin: 0; }
+.ae-cab { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--tenue); }
+.ae-titulo { font-weight: 700; font-size: 0.95rem; }
+.ae-texto { font-size: 0.88rem; }
+.cartel-lista { margin: 0.4rem 0 0.7rem; padding-left: 1.1rem; font-size: 0.92rem; }
+.cartel-lista li { margin: 0.15rem 0; }
