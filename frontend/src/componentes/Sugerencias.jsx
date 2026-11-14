@@ -74,8 +74,21 @@ export default function Sugerencias() {
     const porJugada = cartel === 'jugada';
     return (
       <section className="cartel" role="dialog" aria-label="Activar avisos">
-        <p className="cartel-titulo">{porJugada ? '🔔 ¿Te avisamos si sale tu jugada?' : '🔔 ¿Te avisamos cuando salgan los números?'}</p>
-        <p>{porJugada ? 'Activá los avisos y te llega una notificación apenas salga tu número, con el premio estimado.' : 'Recibí la cabeza de cada sorteo apenas sale y enterate al toque si salió tu jugada.'}</p>
+        <p className="cartel-titulo">{porJugada ? '🔔 ¿Te avisamos si sale tu jugada?' : '🔔 Enterate al toque, sin abrir la app'}</p>
+        {/* Así se ve el aviso en el celular */}
+        <div className="aviso-ejemplo" aria-label="Ejemplo de aviso">
+          <img src="/iconos/icono-192.png" alt="" width="36" height="36" />
+          <div>
+            <p className="ae-cab"><span>Quiniela al Toque</span><span>ahora</span></p>
+            <p className="ae-titulo">¡Salió tu 32 en la Nocturna! 🎉</p>
+            <p className="ae-texto">Ciudad: el 32 a la cabeza ($70.000 estimado)</p>
+          </div>
+        </div>
+        <ul className="cartel-lista">
+          <li>Si sale tu jugada, te avisamos con el premio estimado.</li>
+          {!porJugada && <li>Las cabezas de cada sorteo apenas salen.</li>}
+          <li>Gratis. Lo apagás cuando quieras desde Jugadas.</li>
+        </ul>
         <div className="cartel-botones">
           <button type="button" className="boton" disabled={estado.ocupado} onClick={activar}>{estado.ocupado ? 'Activando…' : 'Sí, avisame'}</button>
           <button type="button" className="enlace" onClick={() => { if (!porJugada) posponer('quiniela.cartel.avisos', 3); setCartel(null); }}>Ahora no</button>
