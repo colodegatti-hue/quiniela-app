@@ -231,3 +231,11 @@ test('Premio avisado queda anotado y a la mañana se resume si no lo vio', async
   // Una sola vez
   assert.equal((await avisos.resumirPremios(new Date('2026-10-09T13:08:00Z'))).enviados, 0);
 });
+
+test('Alerta de número solo en las quinielas elegidas', () => {
+  const todas = armarAviso({ preferencias: { cabezas: false, alertas: ['79'], alertasDonde: 'a_los_20' }, jugadas: [] }, SORTEO);
+  assert.match(todas.cuerpo, /Santa Fe/);
+  const solo = armarAviso({ preferencias: { cabezas: false, alertas: ['79'], alertasDonde: 'a_los_20', alertasQuinielas: ['santafe'] }, jugadas: [] }, SORTEO);
+  assert.equal(solo.cuerpo, 'Santa Fe en la ubicación 5');
+  assert.equal(armarAviso({ preferencias: { cabezas: false, alertas: ['79'], alertasQuinielas: ['cordoba'] }, jugadas: [] }, SORTEO), null);
+});

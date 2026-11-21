@@ -95,9 +95,11 @@ export function armarAviso(sub, sorteo) {
   const alertas = (Array.isArray(prefs.alertas) ? prefs.alertas : []).filter((n) => /^\d{2}$/.test(n));
   if (alertas.length) {
     const hasta = prefs.alertasDonde === 'a_los_20' ? 20 : 1;
+    // Vacío = en todas las quinielas; si eligió algunas, solo en esas
+    const soloEn = Array.isArray(prefs.alertasQuinielas) && prefs.alertasQuinielas.length ? prefs.alertasQuinielas : null;
     const hallados = [];
     for (const n of alertas) {
-      for (const q of ORDEN) {
+      for (const q of ORDEN.filter((x) => !soloEn || soloEn.includes(x))) {
         const ex = sorteo.extractos.find((e) => e.quiniela === q);
         if (!ex) continue;
         const ubic = ex.numeros.slice(0, hasta).map((v, i) => (v.endsWith(n) ? i + 1 : null)).filter(Boolean);

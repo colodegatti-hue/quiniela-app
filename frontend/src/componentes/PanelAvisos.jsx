@@ -14,6 +14,10 @@ const TEXTOS_SIN_SOPORTE = {
 // "Avisame cuando salga el 47": números a seguir en cualquier quiniela
 function AlertasNumeros({ prefs, cambiar }) {
   const [nuevo, setNuevo] = useState('');
+  const soloEn = prefs.alertasQuinielas ?? [];
+  const [eligiendo, setEligiendo] = useState(soloEn.length > 0);
+  const [masProv, setMasProv] = useState(soloEn.some((x) => PROVINCIALES.some((p) => p.id === x)));
+  const alternar = (id) => cambiar({ ...prefs, alertasQuinielas: soloEn.includes(id) ? soloEn.filter((x) => x !== id) : [...soloEn, id] });
   const { pro } = usePro();
   const alertas = prefs.alertas ?? [];
   const lleno = alertas.length >= 10;
@@ -39,7 +43,7 @@ function AlertasNumeros({ prefs, cambiar }) {
   return (
     <div className="alertas">
       <p className="alertas-titulo">Avisarme cuando salga un número</p>
-      <p className="tenue">En cualquier quiniela y turno. Hasta 10 números de 2 cifras.</p>
+      <p className="tenue">{eligiendo && soloEn.length ? 'En las quinielas que elijas, en cualquier turno.' : 'En cualquier quiniela y turno.'} Hasta 10 números de 2 cifras.</p>
       {alertas.length > 0 && (
         <ul className="fichas">
           {alertas.map((n) => (
@@ -59,6 +63,23 @@ function AlertasNumeros({ prefs, cambiar }) {
           <button type="button" aria-pressed={prefs.alertasDonde !== 'a_los_20'} onClick={() => cambiar({ ...prefs, alertasDonde: 'cabeza' })}>A la cabeza</button>
           <button type="button" aria-pressed={prefs.alertasDonde === 'a_los_20'} onClick={() => cambiar({ ...prefs, alertasDonde: 'a_los_20' })}>En los 20</button>
         </div>
+      )}
+      {alertas.length > 0 && (
+        <>
+          <div className="segmentado" role="group" aria-label="En qué quinielas">
+            <button type="button" aria-pressed={!eligiendo} onClick={() => { setEligiendo(false); cambiar({ ...prefs, alertasQuinielas: [] }); }}>En todas</button>
+            <button type="button" aria-pressed={eligiendo} onClick={() => { setEligiendo(true); if (!soloEn.length) cambiar({ ...prefs, alertasQuinielas: [...(prefs.quinielas ?? [])] }); }}>Solo en las que elijo</button>
+          </div>
+          {eligiendo && (
+            <div className="opciones">
+              {[...PRINCIPALES, ...(masProv ? PROVINCIALES : [])].map((q) => (
+                <button key={q.id} type="button" className={`opcion${soloEn.includes(q.id) ? ' activa' : ''}`} aria-pressed={soloEn.includes(q.id)} onClick={() => alternar(q.id)}>{q.nombre}</button>
+              ))}
+              {!masProv && <button type="button" className="enlace" onClick={() => setMasProv(true)}>+ Más provincias</button>}
+            </div>
+          )}
+          {eligiendo && !soloEn.length && <p className="nota">Elegí al menos una quiniela; si no, te avisamos en todas.</p>}
+        </>
       )}
     </div>
   );
