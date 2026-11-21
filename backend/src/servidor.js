@@ -346,6 +346,8 @@ function limpiarPreferencias(p = {}) {
     // Números a seguir (de 2 cifras, sin repetir, como mucho 10)
     alertas: Array.isArray(p.alertas) ? [...new Set(p.alertas.map(String).filter((n) => /^\d{2}$/.test(n)))].slice(0, 10) : [],
     alertasDonde: p.alertasDonde === 'a_los_20' ? 'a_los_20' : 'cabeza',
+    // Quinielas donde vale la alerta (vacío = todas)
+    alertasQuinielas: Array.isArray(p.alertasQuinielas) ? [...new Set(p.alertasQuinielas.map(String))].slice(0, 25) : [],
   };
 }
 
